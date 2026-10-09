@@ -1,0 +1,17 @@
+# Metrics + dashboards (phase 25), sized for one small node. Grafana is private behind Authentik.
+fullnameOverride: kps
+alertmanager: { enabled: false }
+prometheus:
+  prometheusSpec:
+    retention: 7d
+    resources: { requests: { cpu: 100m, memory: 512Mi }, limits: { memory: 1Gi } }
+    storageSpec:
+      volumeClaimTemplate: { spec: { accessModes: [ReadWriteOnce], resources: { requests: { storage: 10Gi } } } }
+grafana:
+  admin: { existingSecret: grafana-admin, userKey: admin-user, passwordKey: admin-password }
+  resources: { requests: { cpu: 50m, memory: 128Mi }, limits: { memory: 384Mi } }
+  persistence: { enabled: true, size: 2Gi }
+kubeEtcd: { enabled: false }
+kubeControllerManager: { enabled: false }
+kubeScheduler: { enabled: false }
+kubeProxy: { enabled: false }

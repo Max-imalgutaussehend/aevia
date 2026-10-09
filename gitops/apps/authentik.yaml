@@ -1,0 +1,25 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: authentik
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: '3'
+spec:
+  project: default
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: platform
+  syncPolicy:
+    syncOptions:
+    - ServerSideApply=true
+  sources:
+  - repoURL: https://charts.goauthentik.io
+    chart: authentik
+    targetRevision: 2026.8.3
+    helm:
+      valueFiles:
+      - $values/gitops/platform/authentik/values.yaml
+  - repoURL: https://github.com/Max-imalgutaussehend/life-server.git
+    targetRevision: r2
+    ref: values

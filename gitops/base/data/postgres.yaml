@@ -29,7 +29,7 @@ spec:
           env:
             - { name: POSTGRES_DB, value: postgres }
             - { name: PGDATA, value: /var/lib/postgresql/data/pgdata }
-            - { name: POSTGRES_SERVICES, value: n8n }
+            - { name: POSTGRES_SERVICES, value: "n8n authentik" }
             - { name: TZ, value: Europe/Berlin }
           envFrom: [{ secretRef: { name: postgres-auth } }]
           readinessProbe:

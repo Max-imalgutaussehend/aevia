@@ -1,0 +1,17 @@
+# Identity provider (phase 14). Gates private services (n8n, status). External Postgres in `data`.
+# Secrets come from Secret `authentik-env` (SOPS), never from this file.
+fullnameOverride: authentik
+authentik:
+  postgresql:
+    host: postgres.data.svc.cluster.local
+    name: authentik
+    user: authentik
+server:
+  replicas: 1
+  envFrom: [{ secretRef: { name: authentik-env } }]
+  resources: { requests: { cpu: 100m, memory: 512Mi }, limits: { memory: 1Gi } }
+worker:
+  replicas: 1
+  envFrom: [{ secretRef: { name: authentik-env } }]
+  resources: { requests: { cpu: 100m, memory: 512Mi }, limits: { memory: 1Gi } }
+postgresql: { enabled: false }

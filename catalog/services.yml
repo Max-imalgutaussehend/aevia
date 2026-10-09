@@ -14,6 +14,7 @@
 #   persistence PVC size, or none
 #   hold        reason string: the generator emits NO manifests for this service
 #   image       pinned image (tag or digest); required unless held
+#   managed_by  helm = deployed from a chart in gitops/apps; generator emits nothing, tofu still publishes the host
 #   internet    true = may reach public internet on 80/443 (RFC1918 excluded)
 #   namespace   apps | platform (default: apps for application, platform for platform)
 #   TODO values are placeholders to be sized in the phase that migrates the service.
@@ -132,3 +133,12 @@ services:
     args: [serve]
     data_path: /var/lib/ntfy
     config_file: { configmap: ntfy-server, source: compose/ntfy/server.yml, mount: /etc/ntfy/server.yml }
+
+  - name: authentik
+    type: platform
+    description: "Identity provider gating private services"
+    port: 9000
+    exposure: public # login page must be reachable; it gates the others
+    managed_by: helm
+    needs: [postgres]
+    persistence: none

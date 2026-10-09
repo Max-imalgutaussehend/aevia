@@ -1,0 +1,34 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata: { name: authentik, namespace: platform }
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: authentik.maxrommel.de
+      http: { paths: [{ path: /, pathType: Prefix, backend: { service: { name: authentik-server, port: { number: 80 } } } }] }
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: { name: authentik-ingress, namespace: platform }
+spec:
+  podSelector: { matchLabels: { app.kubernetes.io/name: authentik, app.kubernetes.io/component: server } }
+  policyTypes: [Ingress]
+  ingress:
+    - from: [{ namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: ingress } } }]
+      ports: [{ port: 9000 }]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: { name: authentik-egress, namespace: platform }
+spec:
+  podSelector: { matchLabels: { app.kubernetes.io/name: authentik } }
+  policyTypes: [Egress]
+  egress:
+    - to: [{ namespaceSelector: {}, podSelector: { matchLabels: { k8s-app: kube-dns } } }]
+      ports: [{ port: 53, protocol: UDP }, { port: 53, protocol: TCP }]
+    - to:
+        - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: data } }
+          podSelector: { matchLabels: { app.kubernetes.io/name: postgres } }
+      ports: [{ port: 5432 }]
+    - to: [{ ipBlock: { cidr: 0.0.0.0/0, except: [10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16] } }]
+      ports: [{ port: 443 }]

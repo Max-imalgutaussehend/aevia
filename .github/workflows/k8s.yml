@@ -2,9 +2,9 @@ name: k8s
 
 on:
   push:
-    paths: ["gitops/**", "catalog/**", "generator/render_k8s.py", "scripts/k8s-validate.sh", ".github/workflows/k8s.yml"]
+    paths: ["gitops/**", "catalog/**", "generator/render_k8s.py", "scripts/k8s-validate.sh", "tests/**", ".github/workflows/k8s.yml"]
   pull_request:
-    paths: ["gitops/**", "catalog/**", "generator/render_k8s.py", "scripts/k8s-validate.sh", ".github/workflows/k8s.yml"]
+    paths: ["gitops/**", "catalog/**", "generator/render_k8s.py", "scripts/k8s-validate.sh", "tests/**", ".github/workflows/k8s.yml"]
 
 permissions:
   contents: read
@@ -33,3 +33,16 @@ jobs:
         with: { install_only: true }
       - uses: azure/setup-helm@v4
       - run: ./tests/isolation/run.sh
+
+  restore:
+    name: backup/restore rehearsal (kind)
+    runs-on: ubuntu-24.04
+    needs: validate
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install pyyaml
+      - uses: helm/kind-action@v1
+        with: { install_only: true }
+      - run: ./tests/restore/run.sh

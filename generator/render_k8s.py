@@ -29,7 +29,7 @@ def load() -> list[dict]:
     d = doc["defaults"]
     out = []
     for s in doc["services"]:
-        if s.get("hold"):
+        if s.get("hold") or s.get("managed_by"):
             continue
         if "image" not in s:
             sys.exit(f"error: {s['name']} has no image and is not held")

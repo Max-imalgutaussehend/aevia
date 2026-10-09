@@ -18,21 +18,21 @@ Each phase needs: ADR, test, rollback. Status: `todo` unless noted.
 | 11 | Ingress / Cloudflare (repo side done: Traefik, cloudflared; apply open) | Cloudflare |
 | 12 | PostgreSQL (manifests done; restore runbook written, restore not run) | — |
 | 13 | Redis (manifests done) | — |
-| 14 | Authentik | — |
-| 15 | MinIO | — |
+| 14 | Authentik (Helm app + policies done; bootstrap after cluster) | — |
+| 15 | MinIO (manifest done; no consumer yet) | — |
 | 16 | NATS (manifests done) | — |
 | 17–20 | n8n, Uptime Kuma, ntfy, earnings-alpha, regime-lens (generated manifests done; portfolio held: no image; longevity held: exam) | — |
 | 21 | CI/CD (k8s validation + isolation workflow done; image build/push open) | GitHub |
-| 22 | Herdr runtime | — |
-| 23 | Dedicated agent node (taint `workload=agent`) | Hetzner |
-| 24 | AI gateway | provider keys |
-| 25 | Observability (OTel, Prometheus, Loki, Tempo, Grafana, Hubble) | — |
-| 26 | Security hardening | — |
+| 22 | Herdr runtime (agents zone scaffold done; no profile yet) | — |
+| 23 | Dedicated agent node (taint `workload=agent`) (tofu `nodes` supports it; apply open) | Hetzner |
+| 24 | AI gateway — not built: needs provider keys and product choice (ADR-0034) | provider keys |
+| 25 | Observability (Prometheus, Grafana, Loki, Tempo values + Argo apps done; OTel collector and Hubble open) | — |
+| 26 | Security hardening (quotas, PSS, CI policy check done) | — |
 | 27 | Backup (pg-backup CronJob done; off-cluster copy open) | — |
-| 28 | Disaster-recovery test (destroy → tofu → k3s → Argo → restore) | all |
+| 28 | Disaster-recovery test (Postgres dump/destroy/restore rehearsal on kind done; full drill needs server) | all |
 | 29 | Traffic cutover | Cloudflare |
 | 30 | R1 decommission | Hetzner |
 
 Phases 01–05 are repo-only. Phase 06 onward touches billable infrastructure.
 
-Phases 14, 15, 22-26 and 28-30 are not started. `longevity` is held (exam review): no R2 manifests, R1 untouched. See ADR-0033.
+Phases 29-30 are not started; 24 is blocked on operator input. `longevity` is held (exam review): no R2 manifests, R1 untouched. See ADR-0033.

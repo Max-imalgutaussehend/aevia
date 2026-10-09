@@ -4,7 +4,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 python3 generator/render_k8s.py --check
-for d in namespaces data edge backup services; do
+for d in namespaces data edge backup services platform agents; do
   echo "== kustomize gitops/base/$d"
   kubectl kustomize "gitops/base/$d" | kubeconform -strict -summary
 done
@@ -16,8 +16,19 @@ helm repo add argo https://argoproj.github.io/argo-helm >/dev/null
 helm repo update >/dev/null
 helm template ingress traefik/traefik --version 41.7.0 -n ingress -f gitops/platform/traefik/values.yaml \
   | kubeconform -strict -ignore-missing-schemas -summary
+helm repo add goauthentik https://charts.goauthentik.io >/dev/null
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts >/dev/null
+helm repo add grafana https://grafana.github.io/helm-charts >/dev/null
+helm repo update >/dev/null
+chart() { helm template "$1" "$2" -n "$3" --version "$4" -f "$5" 2>/dev/null | kubeconform -strict -ignore-missing-schemas -summary; }
+chart authentik goauthentik/authentik platform 2026.8.3 gitops/platform/authentik/values.yaml
+chart kps prometheus-community/kube-prometheus-stack observability 92.2.0 gitops/platform/observability/kube-prometheus-stack.yaml
+chart loki grafana/loki observability 7.3.0 gitops/platform/observability/loki.yaml
+chart tempo grafana/tempo observability 1.24.4 gitops/platform/observability/tempo.yaml
 helm template argocd argo/argo-cd --version 10.10.1 -n argocd -f gitops/platform/argocd-values.yaml \
   | kubeconform -strict -ignore-missing-schemas -summary
+echo "== workload hardening policy"
+python3 tests/policy/check_workloads.py
 echo "== no plaintext secrets / :latest"
 if grep -rEn 'image: .*:latest' gitops; then echo "FAIL: :latest"; exit 1; fi
 if ls gitops/secrets/*.yaml 2>/dev/null | grep -v -E '\.(example|enc)\.yaml$'; then echo "FAIL: unencrypted secret"; exit 1; fi
