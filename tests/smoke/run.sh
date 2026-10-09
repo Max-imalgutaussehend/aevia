@@ -25,6 +25,10 @@ for d in yaml.safe_load_all(sys.stdin):
 ' | kubectl apply -f -
 kubectl -n data rollout status statefulset/postgres --timeout=300s
 kubectl -n data rollout status statefulset/redis --timeout=300s
+kubectl -n platform create secret generic freellmapi-env --from-literal=ENCRYPTION_KEY="$(openssl rand -hex 32)"
+echo "seed-probe" > /tmp/aevia-seed-probe.txt
+kubectl -n platform create secret generic freellmapi-seed --from-file=probe.txt=/tmp/aevia-seed-probe.txt
+kubectl kustomize gitops/base/ai-gateway | kubectl apply -f -
 skip=""
 [[ $(uname -m) == arm64 || $(uname -m) == aarch64 ]] && skip="regime-lens"
 kubectl kustomize gitops/base/services | python3 -c '
@@ -42,5 +46,7 @@ for d in $(kubectl get deploy -A -o jsonpath='{range .items[*]}{.metadata.namesp
     echo "NOT READY $d"; kubectl -n "$ns" describe pod -l app.kubernetes.io/name="$n" | tail -15
     kubectl -n "$ns" logs -l app.kubernetes.io/name="$n" --tail=15 2>&1 || true; fail=1; fi
 done
+seeded=$(kubectl -n platform exec deploy/freellmapi -c freellmapi -- cat /app/server/data/probe.txt 2>/dev/null || true)
+[[ $seeded == seed-probe ]] && echo "ready  seed copied into freellmapi data volume" || { echo "NOT READY seed not copied: $seeded"; fail=1; }
 [[ $fail == 0 ]] || { echo FAIL; exit 1; }
 echo PASS

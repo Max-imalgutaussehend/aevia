@@ -4,7 +4,7 @@ memory limit, allowPrivilegeEscalation=false, no privileged/hostNetwork/hostPath
 import subprocess, sys
 import yaml
 
-DIRS = ["namespaces", "data", "edge", "backup", "services", "platform", "agents"]
+DIRS = ["namespaces", "data", "edge", "backup", "services", "platform", "agents", "ai-gateway"]
 bad = []
 for d in DIRS:
     out = subprocess.run(["kubectl", "kustomize", f"gitops/base/{d}"], check=True, capture_output=True, text=True).stdout

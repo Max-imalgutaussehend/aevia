@@ -25,7 +25,7 @@ Each phase needs: ADR, test, rollback. Status: `todo` unless noted.
 | 21 | CI/CD (k8s validation, isolation, restore and portfolio-image workflows done; portfolio digest pin open until the workflow runs) | GitHub |
 | 22 | Herdr runtime (agents zone scaffold done; no profile yet) | — |
 | 23 | Dedicated agent node (taint `workload=agent`) (tofu `nodes` supports it; apply open) | Hetzner |
-| 24 | AI gateway — not built: needs provider keys and product choice (ADR-0034) | provider keys |
+| 24 | AI gateway (FreeLLMAPI manifest, seed mechanism and runbook done; key adoption and egress allow-list by provider host open) | provider keys |
 | 25 | Observability (Prometheus, Grafana, Loki, Tempo, OTel collector values + Argo apps done; Hubble was already on in the Cilium values) | — |
 | 26 | Security hardening (quotas, PSS, CI policy check done) | — |
 | 27 | Backup (pg-backup CronJob done; off-cluster copy open) | — |
