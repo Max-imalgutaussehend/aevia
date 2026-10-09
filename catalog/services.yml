@@ -12,6 +12,10 @@
 #   port        container port; never published on the node
 #   needs       dependencies this service may reach; everything else is denied
 #   persistence PVC size, or none
+#   hold        reason string: the generator emits NO manifests for this service
+#   image       pinned image (tag or digest); required unless held
+#   internet    true = may reach public internet on 80/443 (RFC1918 excluded)
+#   namespace   apps | platform (default: apps for application, platform for platform)
 #   TODO values are placeholders to be sized in the phase that migrates the service.
 
 defaults:
@@ -21,6 +25,8 @@ defaults:
 
 services:
   - name: n8n
+    internet: true # outbound HTTPS to the public internet only
+    image: n8nio/n8n:2.32.6
     type: application
     description: "Workflow automation and integration engine"
     port: 5678
@@ -30,24 +36,57 @@ services:
     needs: [postgres, redis]
     persistence: 5Gi # TODO size
     resources: { cpu: 250m, memory: 512Mi }
+    uid: 1000
+    data_path: /home/node/.n8n
+    secret_env: n8n-env # N8N_ENCRYPTION_KEY, DB_POSTGRESDB_PASSWORD (SOPS, phase 10)
+    env:
+      DB_TYPE: postgresdb
+      DB_POSTGRESDB_HOST: postgres.data.svc.cluster.local
+      DB_POSTGRESDB_PORT: "5432"
+      DB_POSTGRESDB_DATABASE: n8n
+      DB_POSTGRESDB_USER: n8n
+      N8N_PORT: "5678"
+      N8N_PROTOCOL: https
+      N8N_PROXY_HOPS: "1"
+      N8N_HOST: n8n.maxrommel.de
+      WEBHOOK_URL: https://n8n.maxrommel.de/
+      N8N_EDITOR_BASE_URL: https://n8n.maxrommel.de/
+      NODE_OPTIONS: --max-old-space-size=640
+      GENERIC_TIMEZONE: Europe/Berlin
+      TZ: Europe/Berlin
+      EXECUTIONS_DATA_PRUNE: "true"
+      EXECUTIONS_DATA_MAX_AGE: "336"
+      EXECUTIONS_DATA_SAVE_ON_ERROR: all
+      EXECUTIONS_DATA_SAVE_ON_SUCCESS: all
+      EXECUTIONS_DATA_SAVE_ON_PROGRESS: "false"
+      N8N_DIAGNOSTICS_ENABLED: "false"
+      N8N_VERSION_NOTIFICATIONS_ENABLED: "false"
+      N8N_TEMPLATES_ENABLED: "false"
+      N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: "true"
+      NODES_EXCLUDE: '["n8n-nodes-base.readWriteFile","n8n-nodes-base.executeCommand"]'
 
   - name: earnings-alpha
+    image: ghcr.io/max-imalgutaussehend/earnings-call-alpha@sha256:7d4712c8e70365baa20e2f36600763b6fa89febbb83dcf9f86ae531acf870cd0
     type: application
     description: "Earnings-call sentiment portfolio piece — static nginx build"
     port: 8083
     exposure: public
     needs: []
     persistence: none
+    container_port: 80 # image-native; the 8083 override in R1 only avoided a host-port clash
 
   - name: regime-lens
+    image: ghcr.io/max-imalgutaussehend/regime-lens@sha256:08d125668c592e80d5496dc1b2dda32e3e6b11e9ff52a8bfed624d2e03ebbb1d
     type: application
     description: "Market-regime detection portfolio piece — static nginx build"
     port: 8084
     exposure: public
     needs: []
     persistence: none
+    container_port: 80
 
   - name: portfolio
+    hold: "no container image yet; built and pinned in phase 21 (CI/CD)"
     type: application
     description: "Static personal site on the bare domain"
     port: 8080
@@ -65,8 +104,11 @@ services:
     healthcheck: /api/healthz
     needs: [postgres]
     persistence: none
+    hold: "DHBW exam submission under review; R1 stays untouched, no R2 manifests until released"
 
   - name: status
+    internet: true # outbound HTTPS to the public internet only
+    image: louislam/uptime-kuma:2.4.0
     type: platform
     description: "Uptime Kuma — service monitoring and alerting"
     port: 3001
@@ -74,11 +116,19 @@ services:
     auth: authentik
     needs: [ntfy]
     persistence: 1Gi # TODO size
+    data_path: /app/data
+    env: { TZ: Europe/Berlin, UPTIME_KUMA_PORT: "3001" }
 
   - name: ntfy
+    internet: true # outbound HTTPS to the public internet only
+    image: binwiederhier/ntfy:v2.26.3
     type: platform
     description: "Push notification relay for alerts"
     port: 80
     exposure: private # the R2 sketch said public; R1 is private — decide in phase 19
     needs: []
     persistence: 1Gi # TODO size
+
+    args: [serve]
+    data_path: /var/lib/ntfy
+    config_file: { configmap: ntfy-server, source: compose/ntfy/server.yml, mount: /etc/ntfy/server.yml }

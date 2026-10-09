@@ -64,6 +64,13 @@ help: ## Show this help
 	@echo
 	@echo "$(DIM)Server: $(SERVER_IP)  Key: $(SSH_KEY)$(OFF)"
 
+.PHONY: k8s-gen k8s-check
+k8s-gen: ## Render Kubernetes manifests from catalog/services.yml
+	@python3 generator/render_k8s.py
+
+k8s-check: ## Validate gitops/ offline (kubeconform, helm template, generator drift)
+	@./scripts/k8s-validate.sh
+
 .PHONY: setup
 setup: ## Install local tooling and create .env
 	@echo "$(BOLD)==> checking local tooling$(OFF)"

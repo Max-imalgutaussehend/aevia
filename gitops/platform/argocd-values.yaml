@@ -7,8 +7,31 @@ configs:
   cm:
     exec.enabled: "false"
     users.anonymous.enabled: "false"
+    kustomize.buildOptions: --enable-alpha-plugins --enable-exec
 server:
   service:
     type: ClusterIP
 dex:
   enabled: false
+
+# --- ksops (ADR-0032): decrypt SOPS manifests inside repo-server ---------------------
+# The age private key lives only in Secret `sops-age` (argocd ns), created by hand in
+# phase 10 from a key generated for the cluster. It is never committed.
+repoServer:
+  env:
+    - { name: XDG_CONFIG_HOME, value: /.config }
+    - { name: SOPS_AGE_KEY_FILE, value: /.config/sops/age/keys.txt }
+  volumes:
+    - { name: custom-tools, emptyDir: {} }
+    - { name: sops-age, secret: { secretName: sops-age } }
+  volumeMounts:
+    - { name: custom-tools, mountPath: /usr/local/bin/kustomize, subPath: kustomize }
+    - { name: custom-tools, mountPath: /.config/kustomize/plugin/viaduct.ai/v1/ksops/ksops, subPath: ksops }
+    - { name: sops-age, mountPath: /.config/sops/age }
+  initContainers:
+    - name: install-ksops
+      image: viaductoss/ksops:v4.3.3
+      command: ["/bin/sh", "-c"]
+      args:
+        - echo "Installing KSOPS and kustomize"; mv ksops /custom-tools/; mv kustomize /custom-tools/
+      volumeMounts: [{ mountPath: /custom-tools, name: custom-tools }]

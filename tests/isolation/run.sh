@@ -10,7 +10,7 @@ helm repo add cilium https://helm.cilium.io >/dev/null
 helm upgrade --install cilium cilium/cilium --namespace kube-system \
   -f gitops/platform/cilium/values.yaml \
   --set k8sServiceHost=$CL-control-plane --set k8sServicePort=6443 --wait --timeout 8m
-kubectl apply -f gitops/base/network-policies/isolation-test-fixture.yaml
+kubectl apply -f tests/isolation/fixture.yaml
 for ns in data apps agents; do kubectl -n $ns wait --for=condition=Ready pod --all --timeout=180s; done
 try() { kubectl -n "$1" exec client -- curl -s -m 5 -o /dev/null -w '%{http_code}' http://postgres.data.svc.cluster.local 2>/dev/null || true; }
 a=$(try apps); g=$(try agents)

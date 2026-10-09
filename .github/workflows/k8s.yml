@@ -1,0 +1,35 @@
+name: k8s
+
+on:
+  push:
+    paths: ["gitops/**", "catalog/**", "generator/render_k8s.py", "scripts/k8s-validate.sh", ".github/workflows/k8s.yml"]
+  pull_request:
+    paths: ["gitops/**", "catalog/**", "generator/render_k8s.py", "scripts/k8s-validate.sh", ".github/workflows/k8s.yml"]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install pyyaml
+      - uses: azure/setup-helm@v4
+      - name: install kubeconform
+        run: |
+          curl -fsSL https://github.com/yannh/kubeconform/releases/download/v0.6.7/kubeconform-linux-amd64.tar.gz | tar xz -C /usr/local/bin kubeconform
+      - run: ./scripts/k8s-validate.sh
+
+  isolation:
+    name: isolation test (kind + Cilium)
+    runs-on: ubuntu-24.04
+    needs: validate
+    steps:
+      - uses: actions/checkout@v4
+      - uses: helm/kind-action@v1
+        with: { install_only: true }
+      - uses: azure/setup-helm@v4
+      - run: ./tests/isolation/run.sh

@@ -1,0 +1,55 @@
+# Postgres 17, one instance, one database and role per service (ADR-0005).
+# Secret `postgres-auth` (SOPS, phase 10) must hold POSTGRES_USER, POSTGRES_PASSWORD,
+# POSTGRES_N8N_PASSWORD. Longevity is deliberately not provisioned (catalog hold).
+apiVersion: v1
+kind: Service
+metadata: { name: postgres, labels: { app.kubernetes.io/name: postgres } }
+spec:
+  clusterIP: None
+  selector: { app.kubernetes.io/name: postgres }
+  ports: [{ name: pg, port: 5432 }]
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata: { name: postgres, labels: { app.kubernetes.io/name: postgres } }
+spec:
+  serviceName: postgres
+  replicas: 1
+  selector: { matchLabels: { app.kubernetes.io/name: postgres } }
+  template:
+    metadata: { labels: { app.kubernetes.io/name: postgres, app.kubernetes.io/part-of: aevia } }
+    spec:
+      automountServiceAccountToken: false
+      securityContext: { runAsNonRoot: true, runAsUser: 70, runAsGroup: 70, fsGroup: 70, seccompProfile: { type: RuntimeDefault } }
+      containers:
+        - name: postgres
+          image: postgres:17.7-alpine
+          args: ["-c", "config_file=/etc/postgresql/postgresql.conf"]
+          ports: [{ name: pg, containerPort: 5432 }]
+          env:
+            - { name: POSTGRES_DB, value: postgres }
+            - { name: PGDATA, value: /var/lib/postgresql/data/pgdata }
+            - { name: POSTGRES_SERVICES, value: n8n }
+            - { name: TZ, value: Europe/Berlin }
+          envFrom: [{ secretRef: { name: postgres-auth } }]
+          readinessProbe:
+            exec: { command: ["sh", "-c", "pg_isready -U $POSTGRES_USER -d postgres -h 127.0.0.1"] }
+            periodSeconds: 15
+          livenessProbe:
+            exec: { command: ["sh", "-c", "pg_isready -U $POSTGRES_USER -d postgres -h 127.0.0.1"] }
+            periodSeconds: 30
+            initialDelaySeconds: 60
+          resources: { requests: { cpu: 100m, memory: 512Mi }, limits: { memory: 768Mi } }
+          securityContext: { allowPrivilegeEscalation: false, capabilities: { drop: [ALL] } }
+          volumeMounts:
+            - { name: data, mountPath: /var/lib/postgresql/data }
+            - { name: config, mountPath: /etc/postgresql, readOnly: true }
+            - { name: initdb, mountPath: /docker-entrypoint-initdb.d, readOnly: true }
+            - { name: run, mountPath: /var/run/postgresql }
+      volumes:
+        - { name: config, configMap: { name: postgres-config } }
+        - { name: initdb, configMap: { name: postgres-initdb, defaultMode: 0555 } }
+        - { name: run, emptyDir: {} }
+  volumeClaimTemplates:
+    - metadata: { name: data }
+      spec: { accessModes: [ReadWriteOnce], resources: { requests: { storage: 10Gi } } }

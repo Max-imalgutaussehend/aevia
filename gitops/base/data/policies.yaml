@@ -1,0 +1,25 @@
+# Default-deny comes from the namespace base. Only named clients are admitted.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: { name: postgres-ingress }
+spec:
+  podSelector: { matchLabels: { app.kubernetes.io/name: postgres } }
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: apps } }
+          podSelector: { matchLabels: { app.kubernetes.io/name: n8n } }
+        - podSelector: { matchLabels: { app.kubernetes.io/name: pg-backup } }
+      ports: [{ port: 5432 }]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: { name: redis-ingress }
+spec:
+  podSelector: { matchLabels: { app.kubernetes.io/name: redis } }
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: apps } }
+          podSelector: { matchLabels: { app.kubernetes.io/name: n8n } }
+      ports: [{ port: 6379 }]

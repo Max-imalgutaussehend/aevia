@@ -1,0 +1,15 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: data
+  namespace: argocd
+  annotations: { argocd.argoproj.io/sync-wave: "1" }
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Max-imalgutaussehend/life-server.git
+    targetRevision: r2
+    path: gitops/base/data
+  destination: { server: https://kubernetes.default.svc }
+  syncPolicy:
+    syncOptions: [ServerSideApply=true]

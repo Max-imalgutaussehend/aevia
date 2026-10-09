@@ -1,4 +1,4 @@
-# App-of-apps: Argo CD watches gitops/apps on main. Manual sync until phase 21.
+# App-of-apps: Argo CD watches gitops/apps on r2 (flip to main at cutover, phase 29). Manual sync until phase 21.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
@@ -8,7 +8,7 @@ spec:
   project: default
   source:
     repoURL: https://github.com/Max-imalgutaussehend/life-server.git
-    targetRevision: main
+    targetRevision: r2
     path: gitops/apps
     directory: { recurse: true }
   destination:

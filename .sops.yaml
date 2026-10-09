@@ -30,3 +30,10 @@ creation_rules:
     age: >-
       age1vw5ug8y0y7cvdzq5lzu64365kv8yyl5pmypwq5x2xvycw293f94savz8us,
       age1pzrzrjcmgg0srhu3q4g4553fxsm0yumlyg8tdh57tjvy28k3yy7qmavlsr
+  # Kubernetes secrets (ADR-0032). Same two recipients; the in-cluster key is added
+  # here in phase 10 once it exists:  sops updatekeys gitops/secrets/*.enc.yaml
+  - path_regex: gitops/secrets/.*\.enc\.yaml$
+    encrypted_regex: ^(data|stringData)$
+    age: >-
+      age1vw5ug8y0y7cvdzq5lzu64365kv8yyl5pmypwq5x2xvycw293f94savz8us,
+      age1pzrzrjcmgg0srhu3q4g4553fxsm0yumlyg8tdh57tjvy28k3yy7qmavlsr

@@ -1,0 +1,14 @@
+# Cluster ingress (ADR-0033). k3s' bundled Traefik is disabled (ADR-0030); this is the
+# managed one. Service is named `ingress` because infra/tofu/modules/cloudflare forwards there.
+fullnameOverride: ingress
+deployment: { replicas: 1 }
+service: { type: ClusterIP }
+ports:
+  web: { port: 8000, exposedPort: 80 }
+  websecure: { expose: { default: false } }
+providers:
+  kubernetesCRD: { enabled: false }
+  kubernetesIngress: { enabled: true, publishedService: { enabled: false } }
+securityContext: { allowPrivilegeEscalation: false, capabilities: { drop: [ALL] }, readOnlyRootFilesystem: true }
+podSecurityContext: { runAsNonRoot: true, runAsUser: 65532, seccompProfile: { type: RuntimeDefault } }
+resources: { requests: { cpu: 50m, memory: 64Mi }, limits: { memory: 192Mi } }
