@@ -15,6 +15,8 @@
 #   hold        reason string: the generator emits NO manifests for this service
 #   image       pinned image (tag or digest); required unless held
 #   managed_by  helm = deployed from a chart in gitops/apps; generator emits nothing, tofu still publishes the host
+#   scratch_paths  emptyDir mounts for directories the image expects to exist (e.g. ntfy cache)
+#   add_caps    capabilities added back after drop ALL (root images only; keep minimal)
 #   internet    true = may reach public internet on 80/443 (RFC1918 excluded)
 #   namespace   apps | platform (default: apps for application, platform for platform)
 #   TODO values are placeholders to be sized in the phase that migrates the service.
@@ -36,7 +38,7 @@ services:
     healthcheck: /healthz
     needs: [postgres, redis]
     persistence: 5Gi # TODO size
-    resources: { cpu: 250m, memory: 512Mi }
+    resources: { cpu: 250m, memory: 768Mi } # R1 limit; NODE_OPTIONS heap is 640, so 512Mi OOM-kills (found by tests/smoke)
     uid: 1000
     data_path: /home/node/.n8n
     secret_env: n8n-env # N8N_ENCRYPTION_KEY, DB_POSTGRESDB_PASSWORD (SOPS, phase 10)
@@ -75,6 +77,7 @@ services:
     needs: []
     persistence: none
     container_port: 80 # image-native; the 8083 override in R1 only avoided a host-port clash
+    add_caps: [CHOWN, SETUID, SETGID, NET_BIND_SERVICE] # root nginx image: binds :80, drops workers to nginx user
 
   - name: regime-lens
     image: ghcr.io/max-imalgutaussehend/regime-lens@sha256:08d125668c592e80d5496dc1b2dda32e3e6b11e9ff52a8bfed624d2e03ebbb1d
@@ -85,6 +88,7 @@ services:
     needs: []
     persistence: none
     container_port: 80
+    add_caps: [CHOWN, SETUID, SETGID, NET_BIND_SERVICE] # root nginx image: binds :80, drops workers to nginx user
 
   - name: portfolio
     hold: "no container image yet; built and pinned in phase 21 (CI/CD)"
@@ -130,6 +134,8 @@ services:
     needs: []
     persistence: 1Gi # TODO size
 
+    add_caps: [NET_BIND_SERVICE] # root image, listens on :80
+    scratch_paths: [/var/cache/ntfy] # undelivered-message cache; lost on reschedule, 12h retention only
     args: [serve]
     data_path: /var/lib/ntfy
     config_file: { configmap: ntfy-server, source: compose/ntfy/server.yml, mount: /etc/ntfy/server.yml }

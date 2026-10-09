@@ -11,6 +11,7 @@
 - **Agent zone (22/23):** namespace `agents` is PSS `restricted`, default-deny, egress only DNS + public HTTPS. The agent node and its taint already exist in the tofu `nodes` variable (role `agent`). No agent profile exists yet.
 - **AI gateway (24):** NOT built. It needs provider keys and a choice of gateway product; both are the operator's. The agents zone is ready to be given one allow-rule when it exists.
 - **Observability (25):** kube-prometheus-stack (no Alertmanager, ntfy covers alerting), Loki single binary, Tempo. Namespace `observability` is `privileged` only because node-exporter needs host access; everything else is denied by default. Scraping other namespaces is NOT yet allowed (their default-deny blocks it); add per-namespace allow-rules from `observability` when ServiceMonitors are enabled.
+- **Smoke test:** `tests/smoke/run.sh` applies the real generated manifests (PSS, quotas, NetworkPolicies enforced by kindnet) with random secrets and requires every workload Ready. It found an undersized n8n limit, a missing ntfy cache dir, and root images that cannot run with `drop: ALL`.
 - **Hardening (26):** ResourceQuota + LimitRange per namespace, PSS labels, and `tests/policy/check_workloads.py` fails CI on missing memory limits, privilege escalation, host access or unpinned images.
 - **DR (28):** `tests/restore/run.sh` rehearses dump, destroy and restore of Postgres on kind. The full destroy-tofu-k3s-Argo drill needs the server and is in `docs/runbooks/r2-bring-up.md`.
 

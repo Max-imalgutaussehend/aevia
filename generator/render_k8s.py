@@ -72,6 +72,11 @@ def render(s: dict, by_name: dict) -> str:
         },
         "volumeMounts": mounts,
     }
+    for i, sp in enumerate(s.get("scratch_paths", [])):
+        vols.append({"name": f"scratch-{i}", "emptyDir": {}})
+        mounts.append({"name": f"scratch-{i}", "mountPath": sp})
+    if s.get("add_caps"):
+        container["securityContext"]["capabilities"]["add"] = s["add_caps"]
     if s.get("args"):
         container["args"] = s["args"]
     if s.get("env"):
