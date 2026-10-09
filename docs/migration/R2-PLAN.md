@@ -19,14 +19,14 @@ Each phase needs: ADR, test, rollback. Status: `todo` unless noted.
 | 12 | PostgreSQL (manifests done; restore runbook written, restore not run) | — |
 | 13 | Redis (manifests done) | — |
 | 14 | Authentik (Helm app + policies done; bootstrap after cluster) | — |
-| 15 | MinIO (manifest done; no consumer yet) | — |
+| 15 | Object store (SeaweedFS replaces MinIO; manifest done, auth verified locally; no consumer yet) | — |
 | 16 | NATS (manifests done) | — |
 | 17–20 | n8n, Uptime Kuma, ntfy, earnings-alpha, regime-lens (generated manifests done; portfolio held: no image; longevity held: exam) | — |
-| 21 | CI/CD (k8s validation + isolation workflow done; image build/push open) | GitHub |
+| 21 | CI/CD (k8s validation, isolation, restore and portfolio-image workflows done; portfolio digest pin open until the workflow runs) | GitHub |
 | 22 | Herdr runtime (agents zone scaffold done; no profile yet) | — |
 | 23 | Dedicated agent node (taint `workload=agent`) (tofu `nodes` supports it; apply open) | Hetzner |
 | 24 | AI gateway — not built: needs provider keys and product choice (ADR-0034) | provider keys |
-| 25 | Observability (Prometheus, Grafana, Loki, Tempo values + Argo apps done; OTel collector and Hubble open) | — |
+| 25 | Observability (Prometheus, Grafana, Loki, Tempo, OTel collector values + Argo apps done; Hubble was already on in the Cilium values) | — |
 | 26 | Security hardening (quotas, PSS, CI policy check done) | — |
 | 27 | Backup (pg-backup CronJob done; off-cluster copy open) | — |
 | 28 | Disaster-recovery test (Postgres dump/destroy/restore rehearsal on kind done; full drill needs server) | all |

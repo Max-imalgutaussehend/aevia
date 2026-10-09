@@ -16,12 +16,13 @@ kubectl -n data create secret generic postgres-auth --from-literal=POSTGRES_USER
   --from-literal=POSTGRES_AUTHENTIK_PASSWORD="$(rnd)"
 kubectl -n data create secret generic pg-backup-auth --from-literal=PGUSER=postgres --from-literal=PGPASSWORD="$PW"
 kubectl -n data create secret generic redis-auth --from-literal=REDIS_PASSWORD="$(rnd)"
-kubectl -n data create secret generic minio-auth --from-literal=MINIO_ROOT_USER=root --from-literal=MINIO_ROOT_PASSWORD="$(rnd)"
-# Only postgres + backup: the other data components are covered by kubeconform.
+AK=$(rnd); SK=$(rnd)
+kubectl -n data create secret generic s3-auth --from-literal=s3.json="{\"identities\":[{\"name\":\"admin\",\"credentials\":[{\"accessKey\":\"$AK\",\"secretKey\":\"$SK\"}],\"actions\":[\"Admin\",\"Read\",\"Write\",\"List\",\"Tagging\"]}]}"
+# Only postgres + backup + s3: the other data components are covered by kubeconform.
 kubectl -n data apply -f <(kubectl kustomize gitops/base/data | python3 -c '
 import sys, yaml
 for d in yaml.safe_load_all(sys.stdin):
-    if d and d["metadata"]["name"].startswith(("postgres",)) and d["kind"] != "NetworkPolicy":
+    if d and d["metadata"]["name"].startswith(("postgres","s3")) and d["kind"] != "NetworkPolicy":
         print("---"); print(yaml.safe_dump(d))
 ')
 kubectl -n data rollout status statefulset/postgres --timeout=240s
@@ -40,4 +41,9 @@ kubectl -n data run restore --rm -i --restart=Never --image=postgres:17.7-alpine
 got=$(psql -d n8n -c "select v from restore_probe")
 echo "restored value: ${got:-none}"
 [[ $got == survives ]] || { echo "FAIL"; exit 1; }
+echo "-- s3 auth"
+kubectl -n data rollout status statefulset/s3 --timeout=240s
+s3() { kubectl -n data run "s3-$1" --rm -i --restart=Never --image=amazon/aws-cli:2.17.0 --env=AWS_ACCESS_KEY_ID="$2" --env=AWS_SECRET_ACCESS_KEY="$3" -- --endpoint-url http://s3:8333 s3 mb "s3://probe-$1" 2>&1 || true; }
+s3 good "$AK" "$SK" | grep -q "make_bucket" || { echo "FAIL: valid key rejected"; exit 1; }
+s3 bad wrong wrong | grep -q "InvalidAccessKeyId" || { echo "FAIL: invalid key accepted"; exit 1; }
 echo PASS

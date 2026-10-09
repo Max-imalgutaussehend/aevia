@@ -7,7 +7,7 @@
 ## Decision
 
 - **Authentik (14):** official Helm chart via Argo CD, external Postgres in `data`, secrets from SOPS. Listed in the catalog as `managed_by: helm` so tofu publishes its host and the generator emits nothing.
-- **MinIO (15):** plain StatefulSet in `data`, pinned release tag, no consumer allowed until one is named. Chart repo was unreachable; a plain manifest also keeps the image pin explicit.
+- **Object store (15):** SeaweedFS StatefulSet in `data` (S3 API). The official MinIO images and chart repo are no longer reachable. Auth requires the identities file in Secret `s3-auth`; env-var credentials were tested and do NOT enforce auth. No consumer allowed until one is named.
 - **Agent zone (22/23):** namespace `agents` is PSS `restricted`, default-deny, egress only DNS + public HTTPS. The agent node and its taint already exist in the tofu `nodes` variable (role `agent`). No agent profile exists yet.
 - **AI gateway (24):** NOT built. It needs provider keys and a choice of gateway product; both are the operator's. The agents zone is ready to be given one allow-rule when it exists.
 - **Observability (25):** kube-prometheus-stack (no Alertmanager, ntfy covers alerting), Loki single binary, Tempo. Namespace `observability` is `privileged` only because node-exporter needs host access; everything else is denied by default. Scraping other namespaces is NOT yet allowed (their default-deny blocks it); add per-namespace allow-rules from `observability` when ServiceMonitors are enabled.

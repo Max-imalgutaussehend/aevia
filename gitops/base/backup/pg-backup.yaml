@@ -1,4 +1,4 @@
-# Nightly logical dump of every database to a PVC, then pushed to MinIO/B2 in phase 15/27.
+# Nightly logical dump of every database to a PVC, then pushed to the s3 store / B2 in phase 15/27.
 # Secret `pg-backup-auth` holds PGUSER, PGPASSWORD. Restore: docs/runbooks/restore.md.
 apiVersion: batch/v1
 kind: CronJob

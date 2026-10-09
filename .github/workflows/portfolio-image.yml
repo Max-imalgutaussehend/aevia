@@ -1,0 +1,28 @@
+# Builds and pushes the portfolio image to GHCR. Publishing an image is not deploying one
+# (ADR-0007/0031): the catalog pins the digest by hand and Argo CD syncs it.
+name: portfolio-image
+
+on:
+  push:
+    branches: [r2, main]
+    paths: ["compose/portfolio/**", ".github/workflows/portfolio-image.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with: { registry: ghcr.io, username: "${{ github.actor }}", password: "${{ secrets.GITHUB_TOKEN }}" }
+      - uses: docker/build-push-action@v6
+        id: push
+        with:
+          context: compose/portfolio
+          push: true
+          tags: ghcr.io/max-imalgutaussehend/aevia-portfolio:${{ github.sha }}
+      - run: echo "digest ${{ steps.push.outputs.digest }}" >> "$GITHUB_STEP_SUMMARY"

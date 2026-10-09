@@ -21,6 +21,6 @@ their Secrets (`CreateContainerConfigError`) rather than starting with defaults.
 | cloudflared-token | edge | TUNNEL_TOKEN |
 
 `N8N_ENCRYPTION_KEY` must be the R1 value: it decrypts credentials in the restored DB.
-| minio-auth | data | MINIO_ROOT_USER, MINIO_ROOT_PASSWORD |
 | authentik-env | platform | AUTHENTIK_SECRET_KEY, AUTHENTIK_POSTGRESQL__PASSWORD, AUTHENTIK_BOOTSTRAP_PASSWORD, AUTHENTIK_BOOTSTRAP_TOKEN |
 | grafana-admin | observability | admin-user, admin-password |
+| s3-auth | data | s3.json (SeaweedFS identities: {"identities":[{"name":..,"credentials":[{"accessKey":..,"secretKey":..}],"actions":["Admin","Read","Write","List","Tagging"]}]}) |
