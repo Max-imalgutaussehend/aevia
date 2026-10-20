@@ -82,7 +82,8 @@ def render(s: dict, by_name: dict) -> str:
     if s.get("env"):
         container["env"] = [{"name": k, "value": str(v)} for k, v in s["env"].items()]
     if s.get("secret_env"):
-        container["envFrom"] = [{"secretRef": {"name": s["secret_env"]}}]
+        refs = s["secret_env"] if isinstance(s["secret_env"], list) else [s["secret_env"]]
+        container["envFrom"] = [{"secretRef": ({"name": r} if isinstance(r, str) else dict(r))} for r in refs]
     cfg = s.get("config_file")
     extra_docs = []
     if cfg:

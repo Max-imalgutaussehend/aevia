@@ -88,6 +88,17 @@ def write_forgejo():
     subprocess.run(["sops", "set", f, '["stringData"]["OIDC_FORGEJO_SECRET"]', json.dumps(sec)], check=True, cwd=REPO, env=env)
     write("forgejo-env", "platform", {"FORGEJO__security__SECRET_KEY": rnd(64), "OIDC_CLIENT_SECRET": sec})
 
+def write_mcp():
+    """Obsidian MCP server: one OIDC client secret shared by the Authentik blueprint (OIDC_MCP_SECRET) and the server."""
+    if (OUT / "mcp-obsidian-env.enc.yaml").exists():
+        print("keep    mcp-obsidian-env.enc.yaml")
+        return
+    env = {**os.environ, "SOPS_AGE_KEY_FILE": str(Path.home() / ".config/sops/age/keys.txt")}
+    sec = rnd(48)
+    f = str(OUT / "authentik-env.enc.yaml")
+    subprocess.run(["sops", "set", f, '["stringData"]["OIDC_MCP_SECRET"]', json.dumps(sec)], check=True, cwd=REPO, env=env)
+    write("mcp-obsidian-env", "apps", {"OIDC_CLIENT_SECRET": sec})
+
 def main():
     n8n_key = read_env(REPO / ".env", "N8N_ENCRYPTION_KEY")
     if "--verify-r1" in sys.argv:
@@ -120,6 +131,7 @@ def main():
     write_oidc()
     write_herdr_s3()
     write_forgejo()
+    write_mcp()
     write("grafana-admin", "observability", {"admin-user": "admin", "admin-password": grafana})
     if not GEN.exists():
         GEN.parent.mkdir(parents=True, exist_ok=True)

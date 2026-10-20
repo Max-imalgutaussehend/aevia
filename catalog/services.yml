@@ -95,6 +95,23 @@ services:
     add_caps: [NET_BIND_SERVICE]
     scratch_paths: [/config, /data]
 
+  - name: mcp
+    image: ghcr.io/max-imalgutaussehend/mcp-obsidian@sha256:5b1dd1ad610a1312ba5735b0ba06fbaae92cccdd93fb764e4e04dce63d023b49
+    type: application
+    description: "Obsidian MCP server for claude.ai: read-only, OAuth via Authentik (repo mcp-obsidian)"
+    port: 8000
+    exposure: public # claude.ai has to reach it; every /mcp call needs an Authentik token
+    needs: []
+    internet: true # Authentik introspection over its public hostname
+    persistence: none
+    uid: 10001
+    healthcheck: /healthz
+    scratch_paths: [/data, /home/mcp] # vault clone and git's home
+    secret_env:
+      - mcp-obsidian-env # OIDC client secret (SOPS)
+      - { name: mcp-vault-git, optional: true } # VAULT_GIT_URL with a read token; created by hand, never committed
+    env: { PUBLIC_URL: "https://mcp.maxrommel.de", EXCLUDE_DIRS: "Privat", HOME: /home/mcp }
+
   - name: longevity
     type: application
     description: "LONGEVITY — Health Score Platform (DHBW MVP)"

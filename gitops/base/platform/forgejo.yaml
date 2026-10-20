@@ -92,3 +92,28 @@ spec:
       ports: [{ port: 53, protocol: UDP }, { port: 53, protocol: TCP }]
     - to: [{ ipBlock: { cidr: 0.0.0.0/0, except: [10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16] } }]
       ports: [{ port: 443 }]
+---
+# The Obsidian MCP server (namespace apps) reads the vault repo over the cluster network.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: { name: forgejo-from-mcp, namespace: platform }
+spec:
+  podSelector: { matchLabels: { app.kubernetes.io/name: forgejo } }
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: apps } }
+          podSelector: { matchLabels: { app.kubernetes.io/name: mcp } }
+      ports: [{ port: 3000 }]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: { name: mcp-to-forgejo, namespace: apps }
+spec:
+  podSelector: { matchLabels: { app.kubernetes.io/name: mcp } }
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: platform } }
+          podSelector: { matchLabels: { app.kubernetes.io/name: forgejo } }
+      ports: [{ port: 3000 }]
