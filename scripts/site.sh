@@ -6,15 +6,16 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 OWNER=${SITE_OWNER:-Max-imalgutaussehend}
+LOWER=$(printf %s "$OWNER" | tr "[:upper:]" "[:lower:]") # GHCR paths are lower case (macOS bash 3.2 has no ${VAR,,})
 cmd=${1:?usage: $0 add|bump <name> <repo>}; name=${2:?name}; repo=${3:?repo}
 
 sha=$(gh api "repos/$OWNER/$repo/commits/main" --jq .sha)
-tok=$(curl -s "https://ghcr.io/token?scope=repository:${OWNER,,}/$repo:pull" | python3 -c 'import sys,json;print(json.load(sys.stdin)["token"])')
+tok=$(curl -s "https://ghcr.io/token?scope=repository:$LOWER/$repo:pull" | python3 -c 'import sys,json;print(json.load(sys.stdin)["token"])')
 digest=$(curl -sI -H "Authorization: Bearer $tok" \
   -H "Accept: application/vnd.oci.image.index.v1+json,application/vnd.oci.image.manifest.v1+json,application/vnd.docker.distribution.manifest.v2+json" \
-  "https://ghcr.io/v2/${OWNER,,}/$repo/manifests/$sha" | tr -d '\r' | awk 'tolower($1)=="docker-content-digest:"{print $2}')
+  "https://ghcr.io/v2/$LOWER/$repo/manifests/$sha" | tr -d '\r' | awk 'tolower($1)=="docker-content-digest:"{print $2}')
 [[ $digest == sha256:* ]] || { echo "no image for $repo at $sha yet (CI still running, or the package is private)"; exit 1; }
-image="ghcr.io/${OWNER,,}/$repo@$digest"
+image="ghcr.io/$LOWER/$repo@$digest"
 
 python3 - "$cmd" "$name" "$image" <<'PY'
 import re, sys
