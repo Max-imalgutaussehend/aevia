@@ -22,7 +22,7 @@ Each phase needs: ADR, test, rollback. Status: `todo` unless noted.
 | 15 | Object store (SeaweedFS replaces MinIO; manifest done, auth verified locally; no consumer yet) | — |
 | 16 | NATS (manifests done) | — |
 | 17–20 | n8n, Uptime Kuma, ntfy, portfolio (generated manifests done; earnings-alpha and regime-lens removed 2026-10-20; longevity held: exam) | — |
-| 21 | CI/CD (k8s validation, isolation, restore and portfolio-image workflows done; portfolio digest pin open until the workflow runs) | GitHub |
+| 21 | CI/CD (k8s validation, isolation, restore and sites build in their own repos since ADR-0037) | GitHub |
 | 22 | Herdr runtime (agents zone scaffold done; no profile yet) | — |
 | 23 | Dedicated agent node (taint `workload=agent`) (tofu `nodes` supports it; apply open) | Hetzner |
 | 24 | AI gateway (FreeLLMAPI v0.13.6, adopted 2026-10-20: DB and ENCRYPTION_KEY from the operator's instance, daily encrypted offsite copy; egress stays 443-to-public) | provider keys |
@@ -46,3 +46,5 @@ Phases 29-30 are not started; 24 is blocked on operator input. `longevity` is he
 **Operator UIs published (2026-10-20):** argocd, grafana, prometheus and freellmapi have hostnames on the tunnel, each behind a tofu-managed Cloudflare Access app (catalog `gate: access`; the Access app is created before the DNS record). Traefik trusts cloudflared's X-Forwarded-* (`ports.web.forwardedHeaders.trustedIPs`), which fixed Authentik's login (its API calls went out as http and got 503).
 
 **Authentik SSO (2026-10-20):** ADR-0035. Blueprint-driven providers for Cloudflare Access, Grafana and Argo CD; Authentik is an extra login method for every Access app (email PIN kept as break-glass).
+
+**Websites (2026-10-20):** the real R1 site (al-folio) is `site-maxrommel`; `site-aevia` is new (aevia.maxrommel.de). Both build in their own repos; the catalog pins the digests (ADR-0037, docs/runbooks/add-a-site.md).

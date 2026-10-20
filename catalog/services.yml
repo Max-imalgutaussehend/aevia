@@ -70,7 +70,7 @@ services:
       NODES_EXCLUDE: '["n8n-nodes-base.readWriteFile","n8n-nodes-base.executeCommand"]'
 
   - name: portfolio
-    image: ghcr.io/max-imalgutaussehend/aevia-portfolio@sha256:9a8ba981b4b3eaefe2a0f7df28c1f2e65e1a3e59ba0cba0806fd926c5f552f2d
+    image: ghcr.io/max-imalgutaussehend/site-maxrommel@sha256:269d9926b684b8f0e86a0e904d6beb532daf17d0b2e240dc811f92ba8fc4d712
     type: application
     description: "Static personal site on the bare domain"
     port: 8080
@@ -82,6 +82,18 @@ services:
     uid: 65532 # image sets USER 65532
     add_caps: [NET_BIND_SERVICE] # caddy binary carries cap_net_bind_service; exec fails without it under drop ALL
     scratch_paths: [/config, /data] # caddy writes autosave and state even with admin off
+
+  - name: aevia
+    image: ghcr.io/max-imalgutaussehend/site-aevia@sha256:5bebe42d711276d209d2e954c93c2cc6f1b42a41927d9ffa73120311690602c8
+    type: application
+    description: "Aevia website (repo site-aevia, same Caddy static image as the portfolio)"
+    port: 8080
+    exposure: public
+    needs: []
+    persistence: none
+    uid: 65532
+    add_caps: [NET_BIND_SERVICE]
+    scratch_paths: [/config, /data]
 
   - name: longevity
     type: application

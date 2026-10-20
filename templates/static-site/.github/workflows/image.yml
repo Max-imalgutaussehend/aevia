@@ -1,11 +1,10 @@
-# Builds and pushes the portfolio image to GHCR. Publishing an image is not deploying one
-# (ADR-0007/0031): the catalog pins the digest by hand and Argo CD syncs it.
-name: portfolio-image
+# Builds the site image and pushes it to GHCR. Publishing is not deploying: the Aevia platform pins the digest in its
+# catalog (catalog/services.yml) and Argo CD rolls it out. The digest is printed in the job summary.
+name: image
 
 on:
   push:
-    branches: [r2, main]
-    paths: ["compose/portfolio/**", ".github/workflows/portfolio-image.yml"]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -22,7 +21,7 @@ jobs:
       - uses: docker/build-push-action@v6
         id: push
         with:
-          context: compose/portfolio
+          context: .
           push: true
-          tags: ghcr.io/max-imalgutaussehend/aevia-portfolio:${{ github.sha }}
+          tags: ghcr.io/max-imalgutaussehend/SITE_NAME:${{ github.sha }}
       - run: echo "digest ${{ steps.push.outputs.digest }}" >> "$GITHUB_STEP_SUMMARY"

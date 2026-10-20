@@ -28,7 +28,7 @@ spec:
         fsGroup: 65532
       containers:
       - name: portfolio
-        image: ghcr.io/max-imalgutaussehend/aevia-portfolio@sha256:9a8ba981b4b3eaefe2a0f7df28c1f2e65e1a3e59ba0cba0806fd926c5f552f2d
+        image: ghcr.io/max-imalgutaussehend/site-maxrommel@sha256:269d9926b684b8f0e86a0e904d6beb532daf17d0b2e240dc811f92ba8fc4d712
         ports:
         - name: http
           containerPort: 8080
