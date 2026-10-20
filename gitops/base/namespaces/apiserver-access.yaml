@@ -1,0 +1,17 @@
+# Cilium does not match the API server / node addresses with plain ipBlock rules, so workloads that
+# must talk to the Kubernetes API under default-deny need an entity rule.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata: { name: allow-kube-apiserver, namespace: observability }
+spec:
+  endpointSelector: {}
+  egress:
+    - toEntities: [kube-apiserver]
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata: { name: allow-kube-apiserver, namespace: ingress }
+spec:
+  endpointSelector: {}
+  egress:
+    - toEntities: [kube-apiserver]

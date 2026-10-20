@@ -34,7 +34,8 @@ spec:
           command: ["sh", "-c"]
           args:
             - |
-              if [ -z "$(ls -A /app/server/data)" ] && [ -d /seed ] && [ -n "$(ls -A /seed 2>/dev/null)" ]; then
+              set -- /seed/*
+              if [ -z "$(ls -A /app/server/data)" ] && [ -e "$1" ]; then
                 cp -L /seed/* /app/server/data/ && echo "seeded from freellmapi-seed"
               else
                 echo "data volume not empty or no seed; leaving as is"

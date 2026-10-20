@@ -1,6 +1,9 @@
 # Metrics + dashboards (phase 25), sized for one small node. Grafana is private behind Authentik.
 fullnameOverride: kps
 alertmanager: { enabled: false }
+prometheusOperator:
+  admissionWebhooks: { enabled: false }
+  tls: { enabled: false }
 prometheus:
   prometheusSpec:
     retention: 7d

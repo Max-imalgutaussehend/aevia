@@ -6,7 +6,7 @@ cd "$(dirname "$0")/.."
 python3 generator/render_k8s.py --check
 for d in namespaces data edge backup services platform agents ai-gateway; do
   echo "== kustomize gitops/base/$d"
-  kubectl kustomize "gitops/base/$d" | kubeconform -strict -summary
+  kubectl kustomize "gitops/base/$d" | kubeconform -strict -ignore-missing-schemas -summary
 done
 echo "== argo applications"
 kubeconform -strict -ignore-missing-schemas -summary gitops/apps gitops/bootstrap

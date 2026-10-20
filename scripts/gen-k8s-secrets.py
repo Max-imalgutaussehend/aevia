@@ -57,6 +57,8 @@ def main():
                               "QUEUE_BULL_REDIS_PASSWORD": redis})
     write("authentik-env", "platform", {"AUTHENTIK_SECRET_KEY": rnd(50), "AUTHENTIK_POSTGRESQL__PASSWORD": ak_pw,
                                         "AUTHENTIK_BOOTSTRAP_PASSWORD": ak_boot, "AUTHENTIK_BOOTSTRAP_TOKEN": ak_token})
+    # Fresh gateway key. To adopt an existing instance replace this secret and add the seed (docs/runbooks/ai-gateway.md).
+    write("freellmapi-env", "platform", {"ENCRYPTION_KEY": secrets.token_hex(32)})
     write("grafana-admin", "observability", {"admin-user": "admin", "admin-password": grafana})
     if not GEN.exists():
         GEN.parent.mkdir(parents=True, exist_ok=True)
