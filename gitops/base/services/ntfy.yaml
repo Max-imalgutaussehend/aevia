@@ -52,7 +52,7 @@ spec:
           mountPath: /var/cache/ntfy
         - name: config
           mountPath: /etc/ntfy/server.yml
-          subPath: server.yml
+          subPath: ntfy-server.yml
           readOnly: true
         args:
         - serve
@@ -93,7 +93,7 @@ metadata:
     app.kubernetes.io/name: ntfy
     app.kubernetes.io/part-of: aevia
 data:
-  server.yml: "# =============================================================================\n\
+  ntfy-server.yml: "# =============================================================================\n\
     # server.yml \u2014 ntfy, the alert relay (M8)\n# =============================================================================\n\
     #\n# WHAT NTFY IS FOR HERE\n#   Uptime Kuma detects that something is down; ntfy\
     \ is how that reaches your\n#   phone. Without it, monitoring only helps when\

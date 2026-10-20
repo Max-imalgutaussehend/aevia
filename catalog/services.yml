@@ -150,7 +150,7 @@ services:
     scratch_paths: [/var/cache/ntfy] # undelivered-message cache; lost on reschedule, 12h retention only
     args: [serve]
     data_path: /var/lib/ntfy
-    config_file: { configmap: ntfy-server, source: compose/ntfy/server.yml, mount: /etc/ntfy/server.yml }
+    config_file: { configmap: ntfy-server, source: catalog/config/ntfy-server.yml, mount: /etc/ntfy/server.yml }
 
   - name: authentik
     type: platform

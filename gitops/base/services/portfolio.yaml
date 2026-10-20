@@ -28,7 +28,7 @@ spec:
         fsGroup: 65532
       containers:
       - name: portfolio
-        image: ghcr.io/max-imalgutaussehend/site-maxrommel@sha256:269d9926b684b8f0e86a0e904d6beb532daf17d0b2e240dc811f92ba8fc4d712
+        image: ghcr.io/max-imalgutaussehend/site-maxrommel@sha256:704daa38e87599861dede834f243a15307784ca19e44aac2cc401599fef6f9d0
         ports:
         - name: http
           containerPort: 8080
