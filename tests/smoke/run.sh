@@ -10,7 +10,13 @@ trap 'kind delete cluster --name $CL >/dev/null 2>&1 || true' EXIT
 kind create cluster --name $CL --wait 120s
 rnd() { head -c 24 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | head -c 24; }
 PW=$(rnd); NPW=$(rnd)
-kubectl apply -f <(kubectl kustomize gitops/base/namespaces | grep -v '^$') >/dev/null
+# CiliumNetworkPolicy needs Cilium's CRDs, which kind does not have; tests/isolation covers Cilium.
+kubectl kustomize gitops/base/namespaces | python3 -c '
+import sys, yaml
+for d in yaml.safe_load_all(sys.stdin):
+    if d and d["kind"] != "CiliumNetworkPolicy":
+        print("---"); print(yaml.safe_dump(d))
+' | kubectl apply -f - >/dev/null
 kubectl -n data create secret generic postgres-auth --from-literal=POSTGRES_USER=postgres \
   --from-literal=POSTGRES_PASSWORD="$PW" --from-literal=POSTGRES_N8N_PASSWORD="$NPW" \
   --from-literal=POSTGRES_AUTHENTIK_PASSWORD="$(rnd)"
