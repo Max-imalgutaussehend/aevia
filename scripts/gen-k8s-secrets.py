@@ -34,10 +34,10 @@ def write(name, ns, data):
                    env={**os.environ, "SOPS_AGE_KEY_FILE": str(Path.home() / ".config/sops/age/keys.txt")})
     print(f"created {f.name}")
 
-def write_offsite():
+def write_offsite(name="backup-offsite", ns="data", prefix="postgres"):
     """rclone env config: Hetzner Object Storage bucket, client-side encrypted (crypt) so dumps are unreadable there."""
-    if (OUT / "backup-offsite.enc.yaml").exists():
-        print("keep    backup-offsite.enc.yaml")
+    if (OUT / f"{name}.enc.yaml").exists():
+        print(f"keep    {name}.enc.yaml")
         return
     sec = Path.home() / ".config" / "aevia" / "secrets.env"
     ak = read_env(sec, "export TF_VAR_object_storage_access_key")
@@ -45,11 +45,11 @@ def write_offsite():
     obscure = lambda v: subprocess.run(
         ["docker", "run", "--rm", "rclone/rclone:1.70.3", "obscure", v],
         capture_output=True, text=True, check=True).stdout.strip()
-    write("backup-offsite", "data", {
+    write(name, ns, {
         "RCLONE_CONFIG_HZ_TYPE": "s3", "RCLONE_CONFIG_HZ_PROVIDER": "Other",
         "RCLONE_CONFIG_HZ_ENDPOINT": "https://hel1.your-objectstorage.com", "RCLONE_CONFIG_HZ_REGION": "hel1",
         "RCLONE_CONFIG_HZ_ACCESS_KEY_ID": ak, "RCLONE_CONFIG_HZ_SECRET_ACCESS_KEY": sk,
-        "RCLONE_CONFIG_ENC_TYPE": "crypt", "RCLONE_CONFIG_ENC_REMOTE": "hz:aevia-backups/postgres",
+        "RCLONE_CONFIG_ENC_TYPE": "crypt", "RCLONE_CONFIG_ENC_REMOTE": f"hz:aevia-backups/{prefix}",
         "RCLONE_CONFIG_ENC_PASSWORD": obscure(rnd(40)), "RCLONE_CONFIG_ENC_PASSWORD2": obscure(rnd(40))})
 
 def main():
@@ -78,6 +78,7 @@ def main():
     # Fresh gateway key. To adopt an existing instance replace this secret and add the seed (docs/runbooks/ai-gateway.md).
     write("freellmapi-env", "platform", {"ENCRYPTION_KEY": secrets.token_hex(32)})
     write_offsite()
+    write_offsite("freellmapi-backup-offsite", "platform", "freellmapi")
     if os.environ.get("TUNNEL_TOKEN"):  # from: GET /accounts/<id>/cfd_tunnel/<tunnel_id>/token
         write("cloudflared-token", "edge", {"TUNNEL_TOKEN": os.environ["TUNNEL_TOKEN"]})
     write("grafana-admin", "observability", {"admin-user": "admin", "admin-password": grafana})

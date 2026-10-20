@@ -1,0 +1,51 @@
+# Daily copy of the gateway's SQLite data (provider keys, encrypted by ENCRYPTION_KEY) to the Hetzner bucket
+# through an rclone crypt remote, like pg-backup. The key itself is NOT in this backup: it lives in the SOPS
+# secret freellmapi-env (git). RWO volume: the job lands on the single node next to the gateway pod.
+apiVersion: batch/v1
+kind: CronJob
+metadata: { name: freellmapi-backup, namespace: platform, labels: { app.kubernetes.io/name: freellmapi-backup } }
+spec:
+  schedule: "37 2 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 2
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      template:
+        metadata: { labels: { app.kubernetes.io/name: freellmapi-backup, app.kubernetes.io/part-of: aevia } }
+        spec:
+          restartPolicy: Never
+          automountServiceAccountToken: false
+          securityContext: { runAsNonRoot: true, runAsUser: 1000, runAsGroup: 1000, fsGroup: 1000, seccompProfile: { type: RuntimeDefault } }
+          containers:
+            - name: upload
+              image: rclone/rclone:1.70.3@sha256:34c729127386abec1c610b2aa024e39b4498dc2b4a72a0798ae21fbdc1b0493b
+              command: ["sh", "-c"]
+              args:
+                - |
+                  set -eu
+                  d=$(date -u +%Y%m%d)
+                  rclone copy /data "enc:$d" --no-traverse
+                  rclone delete enc: --min-age 14d
+                  rclone ls "enc:$d" | tail -5
+              env: [{ name: HOME, value: /tmp }]
+              envFrom: [{ secretRef: { name: freellmapi-backup-offsite } }]
+              resources: { requests: { cpu: 50m, memory: 64Mi }, limits: { memory: 256Mi } }
+              securityContext: { allowPrivilegeEscalation: false, capabilities: { drop: [ALL] }, readOnlyRootFilesystem: true }
+              volumeMounts: [{ name: data, mountPath: /data, readOnly: true }, { name: tmp, mountPath: /tmp }]
+          volumes:
+            - { name: data, persistentVolumeClaim: { claimName: freellmapi-data, readOnly: true } }
+            - { name: tmp, emptyDir: {} }
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: { name: freellmapi-backup-egress, namespace: platform }
+spec:
+  podSelector: { matchLabels: { app.kubernetes.io/name: freellmapi-backup } }
+  policyTypes: [Egress]
+  egress:
+    - to: [{ namespaceSelector: {}, podSelector: { matchLabels: { k8s-app: kube-dns } } }]
+      ports: [{ port: 53, protocol: UDP }, { port: 53, protocol: TCP }]
+    - to: [{ ipBlock: { cidr: 0.0.0.0/0, except: [10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16] } }]
+      ports: [{ port: 443 }]
