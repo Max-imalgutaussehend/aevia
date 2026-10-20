@@ -91,7 +91,7 @@ services:
     add_caps: [CHOWN, SETUID, SETGID, NET_BIND_SERVICE] # root nginx image: binds :80, drops workers to nginx user
 
   - name: portfolio
-    hold: "no container image yet; built and pinned in phase 21 (CI/CD)"
+    image: ghcr.io/max-imalgutaussehend/aevia-portfolio@sha256:44f6925e238796ef238035de3b59571e15aa8b3fb6dbd377eef11ed962b40f18
     type: application
     description: "Static personal site on the bare domain"
     port: 8080
@@ -99,6 +99,8 @@ services:
     apex: true
     needs: []
     persistence: none
+    uid: 65532 # image sets USER 65532
+    scratch_paths: [/config, /data] # caddy writes autosave and state even with admin off
 
   - name: longevity
     type: application
