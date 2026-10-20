@@ -43,11 +43,12 @@ echo "restored value: ${got:-none}"
 [[ $got == survives ]] || { echo "FAIL"; exit 1; }
 echo "-- s3 auth"
 kubectl -n data rollout status statefulset/s3 --timeout=240s
-s3() { kubectl -n data run "s3-$1" --rm -i --restart=Never --image=amazon/aws-cli:2.17.0 --env=AWS_ACCESS_KEY_ID="$2" --env=AWS_SECRET_ACCESS_KEY="$3" -- --endpoint-url http://s3:8333 s3 mb "s3://probe-$1" 2>&1 || true; }
+# ListBuckets needs no volume allocation, so it tests authentication only.
+s3() { kubectl -n data run "s3-$1" --rm -i --restart=Never --image=amazon/aws-cli:2.17.0 --env=AWS_ACCESS_KEY_ID="$2" --env=AWS_SECRET_ACCESS_KEY="$3" --command -- sh -c 'aws --endpoint-url http://s3:8333 s3 ls && echo AUTH_OK' 2>&1 || true; }
 ok=0
 for i in 1 2 3 4 5 6; do
   out=$(s3 "good$i" "$AK" "$SK")
-  grep -q "make_bucket" <<<"$out" && { ok=1; break; }
+  grep -q "AUTH_OK" <<<"$out" && { ok=1; break; }
   sleep 10
 done
 [[ $ok == 1 ]] || { echo "last s3 output: $out"; kubectl -n data logs s3-0 --tail=20 || true; echo "FAIL: valid key rejected"; exit 1; }
