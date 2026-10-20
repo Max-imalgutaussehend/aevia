@@ -1,5 +1,6 @@
-# Nightly logical dump of every database to a PVC, then pushed to the s3 store / B2 in phase 15/27.
-# Secret `pg-backup-auth` holds PGUSER, PGPASSWORD. Restore: docs/runbooks/restore.md.
+# Nightly logical dump of every database to a PVC, then copied to the Hetzner bucket aevia-backups
+# through an rclone crypt remote (client-side encrypted). Secret `pg-backup-auth` holds PGUSER,
+# PGPASSWORD; `backup-offsite` holds the rclone env config. Restore: docs/runbooks/restore.md.
 apiVersion: batch/v1
 kind: CronJob
 metadata: { name: pg-backup, namespace: data, labels: { app.kubernetes.io/name: pg-backup } }
@@ -17,7 +18,7 @@ spec:
           restartPolicy: Never
           automountServiceAccountToken: false
           securityContext: { runAsNonRoot: true, runAsUser: 70, runAsGroup: 70, fsGroup: 70, seccompProfile: { type: RuntimeDefault } }
-          containers:
+          initContainers:
             - name: dump
               image: postgres:17.7-alpine
               command: ["sh", "-c"]
@@ -33,7 +34,24 @@ spec:
               resources: { requests: { cpu: 50m, memory: 128Mi }, limits: { memory: 256Mi } }
               securityContext: { allowPrivilegeEscalation: false, capabilities: { drop: [ALL] }, readOnlyRootFilesystem: true }
               volumeMounts: [{ name: backup, mountPath: /backup }]
-          volumes: [{ name: backup, persistentVolumeClaim: { claimName: pg-backup } }]
+          containers:
+            - name: upload
+              image: rclone/rclone:1.70.3@sha256:34c729127386abec1c610b2aa024e39b4498dc2b4a72a0798ae21fbdc1b0493b
+              command: ["sh", "-c"]
+              args:
+                - |
+                  set -eu
+                  rclone copy /backup enc: --include 'aevia-*.sql.gz' --no-traverse
+                  rclone delete enc: --min-age 14d
+                  rclone ls enc: | tail -3
+              env: [{ name: HOME, value: /tmp }]
+              envFrom: [{ secretRef: { name: backup-offsite } }]
+              resources: { requests: { cpu: 50m, memory: 64Mi }, limits: { memory: 256Mi } }
+              securityContext: { allowPrivilegeEscalation: false, capabilities: { drop: [ALL] }, readOnlyRootFilesystem: true }
+              volumeMounts: [{ name: backup, mountPath: /backup, readOnly: true }, { name: tmp, mountPath: /tmp }]
+          volumes:
+            - { name: backup, persistentVolumeClaim: { claimName: pg-backup } }
+            - { name: tmp, emptyDir: {} }
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
@@ -51,3 +69,5 @@ spec:
       ports: [{ port: 53, protocol: UDP }, { port: 53, protocol: TCP }]
     - to: [{ podSelector: { matchLabels: { app.kubernetes.io/name: postgres } } }]
       ports: [{ port: 5432 }]
+    - to: [{ ipBlock: { cidr: 0.0.0.0/0, except: [10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16] } }]
+      ports: [{ port: 443 }]
