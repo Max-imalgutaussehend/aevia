@@ -28,10 +28,13 @@ for d in yaml.safe_load_all(sys.stdin):
 kubectl -n data rollout status statefulset/postgres --timeout=240s
 psql() { kubectl -n data exec postgres-0 -- psql -U postgres -tA "$@"; }
 psql -d n8n -c "create table restore_probe(v text); insert into restore_probe values ('survives');"
+# The real job also uploads to the Hetzner bucket; the test points the same `enc:` remote at a local dir.
+kubectl -n data create secret generic backup-offsite --from-literal=RCLONE_CONFIG_ENC_TYPE=alias --from-literal=RCLONE_CONFIG_ENC_REMOTE=/tmp/offsite
 kubectl apply -f gitops/base/backup/pg-backup.yaml
 kubectl -n data create job --from=cronjob/pg-backup manual-backup
 kubectl -n data wait --for=condition=complete job/manual-backup --timeout=180s
-kubectl -n data logs job/manual-backup | tail -1
+kubectl -n data logs job/manual-backup -c dump | tail -1
+kubectl -n data logs job/manual-backup -c upload 2>/dev/null | grep -q 'aevia-.*sql.gz' || { echo "upload step did not list the dump"; exit 1; }
 echo "-- destroy"
 psql -d postgres -c "drop database n8n;"
 [[ -z $(psql -d postgres -c "select 1 from pg_database where datname='n8n'") ]]
