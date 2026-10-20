@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="100%" height="100%">
+  <g fill="none" stroke="#6eb28b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <!-- flame -->
+    <path d="M32 8 C38 18 46 22 46 34 A14 14 0 0 1 18 34 C18 28 22 24 24 20 C26 24 28 25 30 24 C30 18 30 13 32 8 Z"/>
+    <!-- ember core -->
+    <path d="M32 54 C27 54 24 50 24 46 C24 42 28 40 29 36 C32 38 36 41 36 46 C36 50 35 53 32 54 Z" fill="#6eb28b" stroke="none"/>
+  </g>
+</svg>

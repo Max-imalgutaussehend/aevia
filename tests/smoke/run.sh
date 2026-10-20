@@ -2,7 +2,7 @@
 # Smoke test: the real generated manifests, real namespaces (PSS + quotas enforced) and data layer on
 # a throwaway kind cluster with random test secrets. Fails if any workload does not become Ready.
 # kindnet enforces NetworkPolicy, so the real default-deny and allow-rules are exercised too.
-# regime-lens is amd64-only and is skipped on arm hosts. Never touches a server.
+# Never touches a server.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 CL=aevia-smoke
@@ -36,7 +36,6 @@ echo "seed-probe" > /tmp/aevia-seed-probe.txt
 kubectl -n platform create secret generic freellmapi-seed --from-file=probe.txt=/tmp/aevia-seed-probe.txt
 kubectl kustomize gitops/base/ai-gateway | kubectl apply -f -
 skip=""
-[[ $(uname -m) == arm64 || $(uname -m) == aarch64 ]] && skip="regime-lens"
 kubectl kustomize gitops/base/services | python3 -c '
 import sys, yaml
 skip = sys.argv[1]

@@ -1,0 +1,149 @@
+/*
+  custom.css — small, deliberate departures from the al-folio default so this
+  doesn't read as a straight clone of the site it borrowed its layout from.
+  Loaded after main.css, so these rules win without touching the theme file.
+*/
+
+/* Latin Modern — the font LaTeX ships as its own default (a digital redraw
+   of Computer Modern). Files pulled once from the latex.css project (GUST
+   Font License, free to redistribute) and served locally, no CDN dependency
+   at runtime. */
+@font-face {
+  font-family: "Latin Modern";
+  font-style: normal;
+  font-weight: normal;
+  font-display: swap;
+  src: url("../fonts/LM-regular.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Latin Modern";
+  font-style: italic;
+  font-weight: normal;
+  font-display: swap;
+  src: url("../fonts/LM-italic.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Latin Modern";
+  font-style: normal;
+  font-weight: bold;
+  font-display: swap;
+  src: url("../fonts/LM-bold.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Latin Modern";
+  font-style: italic;
+  font-weight: bold;
+  font-display: swap;
+  src: url("../fonts/LM-bold-italic.woff2") format("woff2");
+}
+
+/* Headings only — the body-text paragraphs stay in the theme's sans-serif,
+   which reads noticeably better at small sizes on screen than Latin Modern
+   does (it was drawn for print, at print resolution). Latin Modern shows up
+   just on the name/section titles, enough to read as a deliberate touch
+   without hurting readability of the actual prose. */
+.post-title,
+h1, h2, h3 {
+  font-family: "Latin Modern", Georgia, "Times New Roman", serif;
+}
+
+/* Accent: warm forest green instead of the default blue/teal. Drives links,
+   the active nav tab, and the publication badges via the same CSS variable
+   the theme already uses everywhere. */
+:root {
+  --global-theme-color: #2f7d5c;
+  --global-hover-color: #2f7d5c;
+}
+html[data-theme="dark"] {
+  --global-theme-color: #52b788;
+  --global-hover-color: #52b788;
+}
+
+/* Name gets a touch of negative tracking — tighter, slightly more editorial
+   than the theme's default loose Roboto Slab spacing. */
+.post-title {
+  letter-spacing: -0.02em;
+}
+
+
+/* Active nav tab gets an underline instead of relying on color + bold alone
+   — a bit more deliberate as a wayfinding cue. */
+.navbar.navbar-light .navbar-nav .nav-item.active > .nav-link {
+  border-bottom: 2px solid var(--global-theme-color);
+}
+
+/* Footer blends into the page instead of the theme's default inverted strip
+   (light bar on a dark page, or vice versa) — that contrast band read as a
+   leftover scrap tacked onto the bottom rather than part of the page. */
+footer.fixed-bottom {
+  background-color: var(--global-bg-color);
+  border-top: 1px solid var(--global-divider-color);
+}
+footer.fixed-bottom .container {
+  color: var(--global-text-color-light);
+}
+footer.fixed-bottom a {
+  color: var(--global-text-color-light);
+  text-decoration: underline;
+}
+footer.fixed-bottom a:hover {
+  color: var(--global-theme-color);
+}
+
+/* Mobile: the theme's `fixed-bottom` footer permanently overlays the bottom
+   of the viewport, on every screen size. That's tolerable on desktop, where
+   there's slack below the last panel — on a phone it isn't: the About panel
+   is short enough that the floating footer sits over its final lines, and
+   the footer's own copyright line wraps to two or three lines at 390px
+   wide, so it covers even more. Un-fixing it below 576px lets it sit at the
+   true bottom of the page instead, in normal flow, never overlapping text
+   above it — the tradeoff (it scrolls out of view instead of always being
+   visible) is the right one at this width. */
+@media (max-width: 576px) {
+  footer.fixed-bottom {
+    position: static;
+  }
+  body.fixed-top-nav {
+    padding-bottom: 0;
+  }
+  footer.fixed-bottom .container {
+    font-size: 0.7rem;
+    line-height: 1.5;
+    padding: 16px 20px;
+  }
+
+  /* Portrait shrinks to a centred, capped-width square instead of running
+     the full column width — edge-to-edge on a 390px phone made it dominate
+     the page before any of the bio text was visible. Bootstrap's
+     `.float-right` utility sets float with !important, so unsetting it
+     needs the same weight or the image stays pinned right with the bio
+     text squeezed into a narrow column beside it. */
+  .profile.float-right {
+    float: none !important;
+    margin: 0 auto 1.5rem !important;
+    max-width: 220px;
+  }
+}
+
+/* Project cards on projects/index.html — icon + TL;DR + tags + links, laid
+   out in a row. Lives here, not an inline <style>, because the CSP's
+   style-src has no 'unsafe-inline' (see the header above this rule set in
+   this file's own history / ADR-0034): an inline block silently does
+   nothing, it isn't just "not preferred". */
+.project-card{display:flex;gap:1.25rem;align-items:flex-start;padding:1.5rem 0;border-bottom:1px solid rgba(127,127,127,0.15)}
+.project-card:last-of-type{border-bottom:none}
+.project-card__icon{flex:0 0 auto;width:72px;height:72px;border-radius:10px;background:#15171a;padding:8px;box-sizing:border-box;object-fit:contain}
+.project-card__body{flex:1 1 auto;min-width:0}
+/* Project names read as product names, not paper titles — plain system
+   sans overrides the site-wide h1/h2/h3 Latin Modern serif rule above. */
+.project-card__title{margin:0 0 .35rem 0;font-size:1.3rem;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;font-weight:600;letter-spacing:0}
+.project-card__tldr{margin:0 0 .6rem 0;opacity:.9}
+.project-card__tags{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:.75rem}
+.project-card__tag{font-family:monospace;font-size:.72rem;letter-spacing:.02em;padding:.15rem .55rem;border-radius:999px;border:1px solid rgba(63,185,80,0.4);color:#3fb950;background:rgba(63,185,80,0.08)}
+.project-card__links{display:flex;gap:.6rem;flex-wrap:wrap}
+.project-card__link{font-size:.85rem;padding:.3rem .75rem;border-radius:6px;border:1px solid rgba(127,127,127,0.35);text-decoration:none !important}
+.project-card__link:hover{border-color:#3fb950;color:#3fb950}
+@media (max-width: 576px) {
+  .project-card{flex-direction:column}
+  .project-card__icon{width:56px;height:56px}
+}

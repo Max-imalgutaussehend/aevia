@@ -21,7 +21,7 @@ Each phase needs: ADR, test, rollback. Status: `todo` unless noted.
 | 14 | Authentik (Helm app + policies done; bootstrap after cluster) | — |
 | 15 | Object store (SeaweedFS replaces MinIO; manifest done, auth verified locally; no consumer yet) | — |
 | 16 | NATS (manifests done) | — |
-| 17–20 | n8n, Uptime Kuma, ntfy, earnings-alpha, regime-lens (generated manifests done; portfolio held: no image; longevity held: exam) | — |
+| 17–20 | n8n, Uptime Kuma, ntfy, portfolio (generated manifests done; earnings-alpha and regime-lens removed 2026-10-20; longevity held: exam) | — |
 | 21 | CI/CD (k8s validation, isolation, restore and portfolio-image workflows done; portfolio digest pin open until the workflow runs) | GitHub |
 | 22 | Herdr runtime (agents zone scaffold done; no profile yet) | — |
 | 23 | Dedicated agent node (taint `workload=agent`) (tofu `nodes` supports it; apply open) | Hetzner |

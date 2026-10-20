@@ -186,24 +186,6 @@ spec:
     ports:
     - port: 8080
   - to:
-    - namespaceSelector:
-        matchLabels:
-          kubernetes.io/metadata.name: apps
-      podSelector:
-        matchLabels:
-          app.kubernetes.io/name: earnings-alpha
-    ports:
-    - port: 80
-  - to:
-    - namespaceSelector:
-        matchLabels:
-          kubernetes.io/metadata.name: apps
-      podSelector:
-        matchLabels:
-          app.kubernetes.io/name: regime-lens
-    ports:
-    - port: 80
-  - to:
     - ipBlock:
         cidr: 0.0.0.0/0
         except:
