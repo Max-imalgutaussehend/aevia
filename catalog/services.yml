@@ -97,7 +97,7 @@ services:
     scratch_paths: [/config, /data]
 
   - name: mcp
-    image: ghcr.io/max-imalgutaussehend/aevia-mcp@sha256:f329dd248b6553feb75189a4f2ac1072dd03fb50a83640d9971458097a03b3be
+    image: ghcr.io/max-imalgutaussehend/aevia-mcp@sha256:8179c948d0dcb76bd58cab46c411cc26b261eada383262abdbcab63cddc5a629
     type: application
     description: "Aevia MCP server: platform, metrics, logs, vault, AI gateway and push (repo aevia-mcp); private, OAuth via Authentik"
     port: 8000
