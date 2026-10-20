@@ -7,7 +7,7 @@ provider "cloudflare" {
 }
 
 provider "aws" {
-  region                      = "eu-central"
+  region                      = regex("^https://([a-z0-9]+)\\.", var.object_storage_endpoint)[0] # Hetzner location, e.g. hel1
   access_key                  = var.object_storage_access_key
   secret_key                  = var.object_storage_secret_key
   skip_credentials_validation = true
