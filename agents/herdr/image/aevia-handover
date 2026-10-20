@@ -1,0 +1,126 @@
+#!/usr/bin/env bash
+# Runs a handed-over task on the server. The laptop side (skill `handover`) pushes a branch `handover/<slug>` that contains
+# .handover/<slug>/HANDOVER.md; this script clones it, lets Claude Code continue the work through the AI gateway, writes
+# .handover/<slug>/RESULT.md, commits and pushes the branch, and sends a push notification.
+#
+#   aevia-handover start <git-url> <branch> <slug>   begin (returns at once; the agent runs in the background)
+#   aevia-handover status <slug>                     state, age, newest commits
+#   aevia-handover logs <slug> [-f]                  agent log
+#   aevia-handover result <slug>                     RESULT.md
+#   aevia-handover stop <slug>                       stop the agent (what it did so far is still pushed)
+#   aevia-handover list
+set -euo pipefail
+
+ROOT=${HANDOVER_ROOT:-$HOME/handover}
+ALLOWED=${HANDOVER_ALLOWED_TOOLS:-"Read Write Edit Glob Grep Bash(git:*) Bash(ls:*) Bash(cat:*) Bash(grep:*) Bash(find:*) Bash(python3:*) Bash(node:*) Bash(npm:*) Bash(make:*) Bash(pytest:*) Bash(sh:*)"}
+MAX_TURNS=${HANDOVER_MAX_TURNS:-60}
+TIMEOUT=${HANDOVER_TIMEOUT:-5400}
+
+die() { echo "aevia-handover: $*" >&2; exit 1; }
+slug_ok() { [[ ${1:-} =~ ^[a-z0-9][a-z0-9-]{0,40}$ ]] || die "slug must be lowercase letters, digits and dashes"; }
+alive() { [[ -f $1/pid ]] && kill -0 "$(cat "$1/pid")" 2>/dev/null; }
+
+notify() {  # best effort; ntfy credentials come from the environment (secret herdr-ntfy)
+  [[ -n ${NTFY_URL:-} ]] || return 0
+  curl -fsS -m 10 ${NTFY_USER:+-u "$NTFY_USER:${NTFY_PASSWORD:-}"} -H "Title: Handover $1" -H "Priority: 3" \
+    -d "$2" "$NTFY_URL/${NTFY_TOPIC:-aevia}" >/dev/null 2>&1 || true
+}
+
+prompt() {
+  cat <<P
+You are the server-side agent for the handover "$1". Another Claude session on the operator's laptop handed this task to you.
+You have no chat history: everything you need is in .handover/$1/HANDOVER.md in this repository. Read it first, then continue
+the work as far as you can without asking questions; make reasonable decisions and write them down.
+
+Rules:
+- Work only on the current branch ($2). Commit in small steps with clear messages. Never touch other branches.
+- You cannot log in anywhere, use the laptop's secrets, or run anything interactive. Do not invent credentials. If a step needs one, skip it and list it.
+- Do not delete work you did not create. Do not weaken tests to make them pass.
+- When you are done or cannot go further, write .handover/$1/RESULT.md in exactly this form, then stop:
+
+---
+status: done | partial | blocked
+finished: <UTC timestamp>
+---
+## Done
+what was completed, with file names
+## Decisions
+choices you made and why
+## Not done and why
+what remains
+## Needs the laptop
+exact steps only the operator can do (logins, secrets, hardware, interactive checks), each as a checklist item with the command to run
+## How to verify
+commands that show the work is correct
+P
+}
+
+start() {
+  local url=${1:?git url} branch=${2:?branch} slug=${3:?slug}
+  slug_ok "$slug"
+  local d=$ROOT/$slug repo=$ROOT/$slug/repo
+  mkdir -p "$d"
+  alive "$d" && die "$slug is already running"
+  if [[ -d $repo/.git ]]; then
+    git -C "$repo" fetch -q origin "$branch" && git -C "$repo" checkout -q -B "$branch" "origin/$branch"
+  else
+    git clone -q --branch "$branch" "$url" "$repo"
+  fi
+  [[ -f $repo/.handover/$slug/HANDOVER.md ]] || die "branch $branch has no .handover/$slug/HANDOVER.md"
+  git -C "$repo" config user.name "Herdr agent"
+  git -C "$repo" config user.email "herdr-agent@users.noreply.localhost"
+  echo running >"$d/status"; date -u +%FT%TZ >"$d/started"; rm -f "$d/finished" "$d/pid"
+  nohup "$0" _run "$slug" "$branch" >"$d/runner.log" 2>&1 &
+  echo $! >"$d/pid"
+  echo "started $slug on $branch (pid $(cat "$d/pid"))"
+}
+
+_run() {
+  local slug=$1 branch=$2 d=$ROOT/$1 repo=$ROOT/$1/repo rc=0
+  cd "$repo"
+  local p; p=$(prompt "$slug" "$branch")
+  if [[ -n ${HANDOVER_AGENT_CMD:-} ]]; then      # tests and dry runs: replace the agent
+    timeout "$TIMEOUT" bash -c "$HANDOVER_AGENT_CMD" >"$d/log.jsonl" 2>"$d/err.log" || rc=$?
+  else
+    timeout "$TIMEOUT" claude -p "$p" --permission-mode acceptEdits --allowedTools "$ALLOWED" --max-turns "$MAX_TURNS" \
+      --output-format stream-json --verbose >"$d/log.jsonl" 2>"$d/err.log" || rc=$?
+  fi
+  mkdir -p ".handover/$slug"
+  if [[ ! -f .handover/$slug/RESULT.md ]]; then
+    printf -- '---\nstatus: blocked\nfinished: %s\n---\n## Done\nunknown\n## Not done and why\nThe agent ended without writing a result (exit code %s). See the log: aevia-handover logs %s\n## Needs the laptop\n- [ ] look at the branch and decide how to continue\n' \
+      "$(date -u +%FT%TZ)" "$rc" "$slug" >".handover/$slug/RESULT.md"
+  fi
+  git add -A
+  git diff --cached --quiet || git commit -q -m "handover($slug): agent work and result"
+  local n=0
+  until git push -q origin "HEAD:$branch" 2>>"$d/runner.log"; do
+    n=$((n + 1)); [[ $n -ge 3 ]] && { echo "push failed" >>"$d/runner.log"; break; }
+    git pull -q --rebase origin "$branch" || break
+  done
+  local st; st=$(sed -n 's/^status: *//p' ".handover/$slug/RESULT.md" | head -1)
+  echo "${st:-partial}" >"$d/status"; date -u +%FT%TZ >"$d/finished"
+  notify "$slug" "$slug: ${st:-partial}. Run handover back on the laptop."
+}
+
+status() {
+  local slug=${1:?slug}; slug_ok "$slug"; local d=$ROOT/$slug
+  [[ -d $d ]] || die "unknown handover $slug"
+  echo "slug:     $slug"
+  echo "status:   $(cat "$d/status" 2>/dev/null)$(alive "$d" && echo ' (agent process alive)')"
+  echo "started:  $(cat "$d/started" 2>/dev/null)"
+  echo "finished: $(cat "$d/finished" 2>/dev/null || echo -)"
+  [[ -d $d/repo/.git ]] && { echo "commits:"; git -C "$d/repo" log --oneline -5 | sed 's/^/  /'; }
+  [[ -f $d/repo/.handover/$slug/RESULT.md ]] && echo "result:   .handover/$slug/RESULT.md is present"
+  true
+}
+
+case ${1:-} in
+  start) shift; start "$@" ;;
+  _run) shift; _run "$@" ;;
+  status) shift; status "$@" ;;
+  logs) shift; slug_ok "${1:-}"; if [[ ${2:-} == -f ]]; then tail -f "$ROOT/$1/log.jsonl"; else tail -n 40 "$ROOT/$1/log.jsonl"; fi ;;
+  result) shift; slug_ok "${1:-}"; cat "$ROOT/$1/repo/.handover/$1/RESULT.md" 2>/dev/null || die "no result yet" ;;
+  stop) shift; slug_ok "${1:-}"; d=$ROOT/$1; if alive "$d"; then pkill -P "$(cat "$d/pid")" 2>/dev/null || true; kill "$(cat "$d/pid")" 2>/dev/null || true; echo stopped >"$d/status"; echo "stopped $1"; else echo "not running"; fi ;;
+  list) for d in "$ROOT"/*/; do [[ -d $d ]] && printf '%-24s %s\n' "$(basename "$d")" "$(cat "$d/status" 2>/dev/null)"; done ;;
+  *) sed -n '2,13p' "$0"; exit 2 ;;
+esac

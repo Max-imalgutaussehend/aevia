@@ -106,6 +106,13 @@ def write_mcp_ntfy():
         return
     write("aevia-mcp-ntfy", "apps", {"NTFY_USER": "aevia-mcp", "NTFY_PASSWORD": rnd(32), "NTFY_TOPIC": "aevia"})
 
+def write_herdr_ntfy():
+    """Write-only ntfy user `herdr`: the handover runner tells the operator when an agent has finished."""
+    if (OUT / "herdr-ntfy.enc.yaml").exists():
+        print("keep    herdr-ntfy.enc.yaml")
+        return
+    write("herdr-ntfy", "agents", {"NTFY_USER": "herdr", "NTFY_PASSWORD": rnd(32), "NTFY_TOPIC": "aevia"})
+
 def main():
     # The n8n key came from the retired R1 server (.env); it is only needed while n8n-env does not exist yet.
     n8n_key = "" if (OUT / "n8n-env.enc.yaml").exists() else read_env(REPO / ".env", "N8N_ENCRYPTION_KEY")
@@ -134,6 +141,7 @@ def main():
     write_forgejo()
     write_mcp()
     write_mcp_ntfy()
+    write_herdr_ntfy()
     write("grafana-admin", "observability", {"admin-user": "admin", "admin-password": grafana})
     if not GEN.exists():
         GEN.parent.mkdir(parents=True, exist_ok=True)

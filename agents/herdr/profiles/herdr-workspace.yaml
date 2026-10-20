@@ -32,15 +32,21 @@ spec:
             - { name: OPENAI_BASE_URL, value: "http://freellmapi.platform.svc.cluster.local:3001/v1" }
             - { name: S3_ENDPOINT, value: "http://s3.data.svc.cluster.local:8333" }
             - { name: S3_BUCKET, value: agent-workspace }
+            - { name: NTFY_URL, value: "http://ntfy.platform.svc.cluster.local:80" }
           envFrom:
             - { secretRef: { name: herdr-s3 } } # AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY of the `agents` S3 identity
             - { secretRef: { name: herdr-gateway, optional: true } } # ANTHROPIC_AUTH_TOKEN / OPENAI_API_KEY = FreeLLMAPI unified key (SOPS)
+            - { secretRef: { name: herdr-ntfy, optional: true } } # NTFY_USER / NTFY_PASSWORD / NTFY_TOPIC: write-only user, "handover finished" pushes (SOPS)
           resources: { requests: { cpu: 100m, memory: 256Mi }, limits: { memory: 1Gi } }
           securityContext: { allowPrivilegeEscalation: false, capabilities: { drop: [ALL] } }
           volumeMounts:
             - { name: home, mountPath: /home/agent }
             - { name: tmp, mountPath: /tmp }
-      volumes: [{ name: tmp, emptyDir: {} }]
+            - { name: git-credentials, mountPath: /etc/herdr-git, readOnly: true }
+      volumes:
+        - { name: tmp, emptyDir: {} }
+        # lines "https://user:token@host" for the git hosts the agent may read and push (GitHub, git.maxrommel.de); created by hand, never committed
+        - { name: git-credentials, secret: { secretName: herdr-git, optional: true } }
   volumeClaimTemplates:
     - metadata: { name: home }
       spec: { accessModes: [ReadWriteOnce], resources: { requests: { storage: 10Gi } } }
@@ -61,6 +67,22 @@ spec:
         - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: data } }
           podSelector: { matchLabels: { app.kubernetes.io/name: s3 } }
       ports: [{ port: 8333 }]
+    - to:
+        - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: platform } }
+          podSelector: { matchLabels: { app.kubernetes.io/name: ntfy } }
+      ports: [{ port: 80 }]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: { name: ntfy-from-herdr, namespace: platform }
+spec:
+  podSelector: { matchLabels: { app.kubernetes.io/name: ntfy } }
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: agents } }
+          podSelector: { matchLabels: { app.kubernetes.io/name: herdr } }
+      ports: [{ port: 80 }]
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy

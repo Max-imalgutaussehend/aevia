@@ -13,3 +13,6 @@ policy) is `gitops/base/agents/agents.yaml`; quota and PSS `restricted` come fro
 2. Join it to k3s as an agent with label `workload=agent` and taint `workload=agent:NoSchedule` (cluster/bootstrap/k3s).
 3. `git mv agents/herdr/enable/agent-profiles-app.yaml gitops/apps/agent-profiles.yaml`, commit, push.
 4. `kubectl -n agents exec -it herdr-0 -- herdr`; install an agent CLI into `/home/agent` (persistent).
+
+## Handover
+The image carries `aevia-handover` and Claude Code; the Claude Code skills `handover` and `handover-back` live in `skills/` (install with `skills/install.sh`). See [`docs/runbooks/handover.md`](../../docs/runbooks/handover.md) and ADR-0038.
