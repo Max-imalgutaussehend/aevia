@@ -17,5 +17,5 @@ spec:
       selfHeal: true
   source:
     repoURL: https://github.com/Max-imalgutaussehend/life-server.git
-    targetRevision: r2
+    targetRevision: main
     path: gitops/base/agents

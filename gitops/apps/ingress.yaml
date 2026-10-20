@@ -15,7 +15,7 @@ spec:
       valueFiles:
       - $values/gitops/platform/traefik/values.yaml
   - repoURL: https://github.com/Max-imalgutaussehend/life-server.git
-    targetRevision: r2
+    targetRevision: main
     ref: values
   destination:
     server: https://kubernetes.default.svc

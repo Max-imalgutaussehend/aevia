@@ -9,7 +9,7 @@ spec:
   destination: { server: https://kubernetes.default.svc, namespace: agents }
   source:
     repoURL: https://github.com/Max-imalgutaussehend/life-server.git
-    targetRevision: r2
+    targetRevision: main
     path: agents/herdr/profiles
   syncPolicy:
     automated: { prune: false, selfHeal: true }
