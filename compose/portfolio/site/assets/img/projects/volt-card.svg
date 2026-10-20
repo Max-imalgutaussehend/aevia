@@ -1,8 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="100%" height="100%">
-  <g fill="none" stroke="#6eb28b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-    <!-- bolt -->
-    <path d="M36 6 L14 36 H29 L26 58 L50 26 H34 Z"/>
-    <!-- baseline -->
-    <path d="M8 58 H56" stroke-width="1.4"/>
-  </g>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="8" fill="#2e183d"/><path d="M7.5 8C10 19.5 13 24 16 24s6-4.500 8.500-16" fill="none" stroke="#d7ff64" stroke-width="3.400" stroke-linecap="round" stroke-linejoin="round"/></svg>

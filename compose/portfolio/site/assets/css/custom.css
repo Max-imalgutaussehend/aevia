@@ -147,3 +147,5 @@ footer.fixed-bottom a:hover {
   .project-card{flex-direction:column}
   .project-card__icon{width:56px;height:56px}
 }
+/* project logos that carry their own background (favicons): no extra frame */
+.project-card__icon--brand{padding:0;background:none;border-radius:14px}
