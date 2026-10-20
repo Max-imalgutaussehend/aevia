@@ -100,7 +100,10 @@ services:
     type: application
     description: "Obsidian MCP server for claude.ai: read-only, OAuth via Authentik (repo mcp-obsidian)"
     port: 8000
-    exposure: public # claude.ai has to reach it; every /mcp call needs an Authentik token
+    exposure: private
+    gate: access
+    access_ip_bypass: ["160.79.104.0/21"] # Anthropic's outbound range (platform.claude.com/docs/en/api/ip-addresses): claude.ai connects from there; everyone else gets the login
+    # every /mcp call additionally needs an Authentik OAuth token
     needs: []
     internet: true # Authentik introspection over its public hostname
     persistence: none

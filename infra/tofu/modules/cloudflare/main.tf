@@ -91,6 +91,20 @@ resource "cloudflare_zero_trust_access_application" "bypass" {
   policies         = [{ id = cloudflare_zero_trust_access_policy.bypass[0].id, precedence = 1 }]
 }
 
+locals {
+  ip_bypass = { for name, s in var.services : name => s.access_ip_bypass if s.gate == "access" && length(s.access_ip_bypass) > 0 }
+}
+
+# Source-IP bypass for services that authenticate themselves (OAuth). Everyone else still hits the login.
+resource "cloudflare_zero_trust_access_policy" "ip_bypass" {
+  for_each = local.ip_bypass
+
+  account_id = var.account_id
+  name       = "aevia-ip-${each.key}"
+  decision   = "bypass"
+  include    = [for cidr in each.value : { ip = { ip = cidr } }]
+}
+
 resource "cloudflare_zero_trust_access_application" "gated" {
   for_each = local.gated
 
@@ -99,7 +113,10 @@ resource "cloudflare_zero_trust_access_application" "gated" {
   domain           = each.value
   type             = "self_hosted"
   session_duration = "24h"
-  policies         = [{ id = cloudflare_zero_trust_access_policy.operator[0].id, precedence = 1 }]
+  policies = concat(
+    [{ id = cloudflare_zero_trust_access_policy.operator[0].id, precedence = 1 }],
+    contains(keys(local.ip_bypass), each.key) ? [{ id = cloudflare_zero_trust_access_policy.ip_bypass[each.key].id, precedence = 2 }] : []
+  )
 }
 
 resource "cloudflare_dns_record" "service" {

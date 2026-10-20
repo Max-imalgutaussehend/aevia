@@ -33,6 +33,7 @@ variable "services" {
   type = map(object({
     exposure = string
     apex     = optional(bool, false)
+    access_ip_bypass = optional(list(string), []) # CIDRs that skip the login for this host (e.g. Anthropic's outbound range for an MCP server that has its own OAuth)
     access_bypass = optional(list(string), []) # path patterns of a gated host that skip the browser login (e.g. git smart-HTTP); the app must authenticate itself
     gate     = optional(string, "") # "access" = Cloudflare Access app (var.access_emails) is created before the DNS record
     aliases  = optional(list(string), []) # extra subdomains routed through the tunnel; their DNS records are managed elsewhere
