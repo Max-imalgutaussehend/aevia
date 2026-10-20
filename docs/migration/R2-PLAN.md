@@ -15,7 +15,7 @@ Each phase needs: ADR, test, rollback. Status: `todo` unless noted.
 | 08 | Cilium (ADR-0030; isolation test `tests/isolation/run.sh` passes on kind) (default-deny per namespace); live on R2 | — |
 | 09 | Argo CD (ADR-0031, drafted) | — |
 | 10 | Secrets (SOPS + age) (ADR-0032; repo side done: rules, templates, ksops values; in-cluster key open) | age key |
-| 11 | Ingress / Cloudflare (repo side done: Traefik, cloudflared; apply open) | Cloudflare |
+| 11 | Ingress / Cloudflare (done 2026-10-20: tunnel `aevia`, remote-managed config, cloudflared token via SOPS) | Cloudflare |
 | 12 | PostgreSQL (manifests done; restore runbook written, restore not run) | — |
 | 13 | Redis (manifests done) | — |
 | 14 | Authentik (Helm app + policies done; bootstrap after cluster) | — |
@@ -28,13 +28,15 @@ Each phase needs: ADR, test, rollback. Status: `todo` unless noted.
 | 24 | AI gateway (FreeLLMAPI manifest, seed mechanism and runbook done; key adoption and egress allow-list by provider host open) | provider keys |
 | 25 | Observability (Prometheus, Grafana, Loki, Tempo, OTel collector values + Argo apps done; Hubble was already on in the Cilium values) | — |
 | 26 | Security hardening (quotas, PSS, CI policy check done) | — |
-| 27 | Backup (pg-backup CronJob done; off-cluster copy open) | — |
+| 27 | Backup (pg-backup CronJob + rclone-crypt upload to Hetzner bucket `aevia-backups`, verified 2026-10-20) | — |
 | 28 | Disaster-recovery test (Postgres dump/destroy/restore rehearsal on kind done; full drill needs server) | all |
-| 29 | Traffic cutover | Cloudflare |
-| 30 | R1 decommission | Hetzner |
+| 29 | Traffic cutover (done 2026-10-20: DNS for all published hosts points to the R2 tunnel; Access apps for n8n/status/ntfy kept) | Cloudflare |
+| 30 | R1 decommission (done 2026-10-20: server deleted after final snapshot 445944792 and encrypted backup `aevia-backups/r1-final/`) | Hetzner |
 
 Phases 01–05 are repo-only. Phase 06 onward touches billable infrastructure.
 
 Phases 29-30 are not started; 24 is blocked on operator input. `longevity` is held (exam review): no R2 manifests, R1 untouched. See ADR-0033.
 
 **Live on R2 (2026-10-20):** phases 07-10, 12-20 (except portfolio/longevity), 21, 24-27; n8n restored from R1; backup job verified. Open: 11 and 29 (Cloudflare credentials), 23 (agent node, no workload yet), 28 full destroy drill, 30 (R1 has non-catalog services).
+
+**Cutover and R1 decommission (2026-10-20):** tunnel, DNS and portfolio (digest pinned, `www` alias) now run on R2. R1 server `life-server` was deleted after a Hetzner snapshot (id 445944792, delete when no longer needed) and an age-encrypted archive in `aevia-backups/r1-final/` (Postgres dumps of both instances, selected volumes, /opt and /home/deploy). Not migrated by decision: longevity, daviddiehm, claude-rc-container and the removed agent stack. Still open: agent node (23), Authentik forward-auth wiring, full destroy/rebuild drill (28), FreeLLMAPI key adoption (24). Uptime Kuma data was restored from R1, but its monitors still point at R1 container names and need new targets.
