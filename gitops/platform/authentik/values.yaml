@@ -8,6 +8,7 @@ authentik:
     user: authentik
 server:
   replicas: 1
+  env: [{ name: AUTHENTIK_WEB__WORKERS, value: "1" }] # default 2 gunicorn workers of ~300 MiB each; one is plenty for a single user
   envFrom: [{ secretRef: { name: authentik-env } }]
   resources: { requests: { cpu: 100m, memory: 512Mi }, limits: { memory: 1Gi } }
 worker:
