@@ -70,7 +70,7 @@ services:
       NODES_EXCLUDE: '["n8n-nodes-base.readWriteFile","n8n-nodes-base.executeCommand"]'
 
   - name: portfolio
-    image: ghcr.io/max-imalgutaussehend/site-maxrommel@sha256:704daa38e87599861dede834f243a15307784ca19e44aac2cc401599fef6f9d0
+    image: ghcr.io/max-imalgutaussehend/site-maxrommel@sha256:5138911b0528b71c03c2f023ef3d0999ba5d40ad8e6ad0680d5cd0f91afc59ce
     type: application
     description: "Static personal site on the bare domain"
     port: 8080
@@ -84,7 +84,7 @@ services:
     scratch_paths: [/config, /data] # caddy writes autosave and state even with admin off
 
   - name: aevia
-    image: ghcr.io/max-imalgutaussehend/site-aevia@sha256:5bebe42d711276d209d2e954c93c2cc6f1b42a41927d9ffa73120311690602c8
+    image: ghcr.io/max-imalgutaussehend/site-aevia@sha256:8adbf15e7ded6fdaadd9cfbe37e6c4e95677c47723b33deec4bc65133db0d552
     type: application
     description: "Aevia website (repo site-aevia, same Caddy static image as the portfolio)"
     port: 8080
