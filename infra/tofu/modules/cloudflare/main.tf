@@ -63,6 +63,34 @@ resource "cloudflare_zero_trust_access_policy" "operator" {
   }
 }
 
+locals {
+  bypass_paths = merge([
+    for name, s in var.services : {
+      for i, path in s.access_bypass : "${name}-${i}" => "${local.hostnames[name]}/${path}"
+    } if s.gate == "access"
+  ]...)
+}
+
+# Path-scoped bypass for clients that cannot do a browser login (git over HTTPS). More specific paths win over the host app.
+resource "cloudflare_zero_trust_access_policy" "bypass" {
+  count      = length(local.bypass_paths) > 0 ? 1 : 0
+  account_id = var.account_id
+  name       = "aevia-bypass"
+  decision   = "bypass"
+  include    = [{ everyone = {} }]
+}
+
+resource "cloudflare_zero_trust_access_application" "bypass" {
+  for_each = local.bypass_paths
+
+  account_id       = var.account_id
+  name             = "${each.key}-bypass"
+  domain           = each.value
+  type             = "self_hosted"
+  session_duration = "24h"
+  policies         = [{ id = cloudflare_zero_trust_access_policy.bypass[0].id, precedence = 1 }]
+}
+
 resource "cloudflare_zero_trust_access_application" "gated" {
   for_each = local.gated
 
@@ -77,7 +105,7 @@ resource "cloudflare_zero_trust_access_application" "gated" {
 resource "cloudflare_dns_record" "service" {
   for_each = local.hostnames
 
-  depends_on = [cloudflare_zero_trust_access_application.gated]
+  depends_on = [cloudflare_zero_trust_access_application.gated, cloudflare_zero_trust_access_application.bypass]
 
   zone_id = var.zone_id
   name    = each.value

@@ -145,6 +145,17 @@ services:
     persistence: none
 
   # Operator UIs: deployed by their own charts/manifests, published through the tunnel behind Cloudflare Access.
+  - name: git
+    type: platform
+    description: "Forgejo git server (Obsidian vault first); web UI behind Access + Authentik, git over HTTPS with tokens"
+    port: 3000
+    exposure: private
+    gate: access
+    access_bypass: ["*.git/*"] # smart-HTTP git endpoints: Forgejo's own token auth, no browser login possible
+    managed_by: helm
+    needs: []
+    persistence: none
+
   - name: argocd
     type: platform
     namespace: argocd

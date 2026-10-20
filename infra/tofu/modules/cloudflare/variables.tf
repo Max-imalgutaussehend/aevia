@@ -33,6 +33,7 @@ variable "services" {
   type = map(object({
     exposure = string
     apex     = optional(bool, false)
+    access_bypass = optional(list(string), []) # path patterns of a gated host that skip the browser login (e.g. git smart-HTTP); the app must authenticate itself
     gate     = optional(string, "") # "access" = Cloudflare Access app (var.access_emails) is created before the DNS record
     aliases  = optional(list(string), []) # extra subdomains routed through the tunnel; their DNS records are managed elsewhere
   }))
