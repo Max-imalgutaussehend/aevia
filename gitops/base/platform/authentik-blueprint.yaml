@@ -35,6 +35,7 @@ data:
           authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-implicit-consent]]
           invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
           client_type: confidential
+          grant_types: [authorization_code, refresh_token] # empty by default in this version: every authorize call fails
           client_id: cloudflare-access
           client_secret: !Env OIDC_CLOUDFLARE_SECRET
           redirect_uris:
@@ -56,6 +57,7 @@ data:
           authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-implicit-consent]]
           invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
           client_type: confidential
+          grant_types: [authorization_code, refresh_token] # empty by default in this version: every authorize call fails
           client_id: grafana
           client_secret: !Env OIDC_GRAFANA_SECRET
           redirect_uris:
@@ -78,6 +80,7 @@ data:
           authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-implicit-consent]]
           invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
           client_type: confidential
+          grant_types: [authorization_code, refresh_token] # empty by default in this version: every authorize call fails
           client_id: argocd
           client_secret: !Env OIDC_ARGOCD_SECRET
           redirect_uris:
