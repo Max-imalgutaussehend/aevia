@@ -10,3 +10,8 @@ service-cidr: 10.96.0.0/16
 secrets-encryption: true
 write-kubeconfig-mode: "0600"
 tls-san: [2.31.1.35, 10.42.1.1]
+# Pods inherit the node's resolver list; Hetzner's resolv.conf has more than three nameservers, which Kubernetes warns about
+# on every pod start ("Nameserver limits exceeded"). A fixed file with the two Hetzner resolvers silences it.
+# Create /etc/rancher/k3s/resolv.conf first (see docs/runbooks/node-resolver.md), then restart k3s.
+kubelet-arg: ["resolv-conf=/etc/rancher/k3s/resolv.conf"]
+
