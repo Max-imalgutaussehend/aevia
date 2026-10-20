@@ -23,7 +23,7 @@ provider "aws" {
 
 locals {
   catalog  = yamldecode(file("${path.root}/../../../../catalog/services.yml"))
-  services = { for s in local.catalog.services : s.name => { exposure = s.exposure, apex = try(s.apex, false), aliases = try(s.aliases, []) } if try(s.hold, "") == "" }
+  services = { for s in local.catalog.services : s.name => { exposure = s.exposure, apex = try(s.apex, false), aliases = try(s.aliases, []), gate = try(s.gate, "") } if try(s.hold, "") == "" }
 }
 
 module "hetzner" {
@@ -43,6 +43,7 @@ module "cloudflare" {
   domain        = var.domain
   tunnel_secret = var.tunnel_secret
   services      = local.services
+  access_emails = var.access_emails
 }
 
 module "storage" {

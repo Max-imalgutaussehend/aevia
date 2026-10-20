@@ -14,6 +14,7 @@
 #   persistence PVC size, or none
 #   hold        reason string: the generator emits NO manifests for this service
 #   image       pinned image (tag or digest); required unless held
+#   gate        access = tofu creates a Cloudflare Access app (operator emails) before the DNS record exists
 #   managed_by  helm = deployed from a chart in gitops/apps; generator emits nothing, tofu still publishes the host
 #   scratch_paths  emptyDir mounts for directories the image expects to exist (e.g. ntfy cache)
 #   add_caps    capabilities added back after drop ALL (root images only; keep minimal)
@@ -151,4 +152,48 @@ services:
     exposure: public # login page must be reachable; it gates the others
     managed_by: helm
     needs: [postgres]
+    persistence: none
+
+  # Operator UIs: deployed by their own charts/manifests, published through the tunnel behind Cloudflare Access.
+  - name: argocd
+    type: platform
+    namespace: argocd
+    description: "Argo CD (GitOps controller UI)"
+    port: 8080
+    exposure: private
+    gate: access
+    managed_by: helm
+    needs: []
+    persistence: none
+
+  - name: grafana
+    type: platform
+    namespace: observability
+    description: "Grafana dashboards over Prometheus, Loki, Tempo"
+    port: 3000
+    exposure: private
+    gate: access
+    managed_by: helm
+    needs: []
+    persistence: none
+
+  - name: prometheus
+    type: platform
+    namespace: observability
+    description: "Prometheus query UI"
+    port: 9090
+    exposure: private
+    gate: access
+    managed_by: helm
+    needs: []
+    persistence: none
+
+  - name: freellmapi
+    type: platform
+    description: "FreeLLMAPI dashboard (AI gateway); agents use the in-cluster Service"
+    port: 3001
+    exposure: private
+    gate: access
+    managed_by: helm
+    needs: []
     persistence: none

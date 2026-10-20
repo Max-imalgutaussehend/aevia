@@ -1,0 +1,69 @@
+# Operator UIs published through the Cloudflare tunnel. Every host here is gated by a Cloudflare Access app
+# (infra/tofu/modules/cloudflare, catalog `gate: access`), which tofu creates BEFORE the DNS record.
+# Traefik may reach these namespaces (gitops/base/edge/cloudflared.yaml: traefik-policy); each target allows
+# only the ingress namespace on its container port.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata: { name: argocd, namespace: argocd }
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: argocd.maxrommel.de
+      http: { paths: [{ path: /, pathType: Prefix, backend: { service: { name: argocd-server, port: { number: 80 } } } }] }
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: { name: argocd-server-from-ingress, namespace: argocd }
+spec:
+  podSelector: { matchLabels: { app.kubernetes.io/name: argocd-server } }
+  policyTypes: [Ingress]
+  ingress:
+    - from: [{ namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: ingress } } }]
+      ports: [{ port: 8080 }]
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata: { name: grafana, namespace: observability }
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: grafana.maxrommel.de
+      http: { paths: [{ path: /, pathType: Prefix, backend: { service: { name: kube-prometheus-stack-grafana, port: { number: 80 } } } }] }
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata: { name: prometheus, namespace: observability }
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: prometheus.maxrommel.de
+      http: { paths: [{ path: /, pathType: Prefix, backend: { service: { name: kps-prometheus, port: { number: 9090 } } } }] }
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: { name: operator-uis-from-ingress, namespace: observability }
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+  ingress:
+    - from: [{ namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: ingress } } }]
+      ports: [{ port: 3000 }, { port: 9090 }]
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata: { name: freellmapi, namespace: platform }
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: freellmapi.maxrommel.de
+      http: { paths: [{ path: /, pathType: Prefix, backend: { service: { name: freellmapi, port: { number: 3001 } } } }] }
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: { name: freellmapi-from-ingress, namespace: platform }
+spec:
+  podSelector: { matchLabels: { app.kubernetes.io/name: freellmapi } }
+  policyTypes: [Ingress]
+  ingress:
+    - from: [{ namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: ingress } } }]
+      ports: [{ port: 3001 }]

@@ -14,6 +14,8 @@ grafana:
   admin: { existingSecret: grafana-admin, userKey: admin-user, passwordKey: admin-password }
   resources: { requests: { cpu: 50m, memory: 128Mi }, limits: { memory: 384Mi } }
   persistence: { enabled: true, size: 2Gi }
+  grafana.ini:
+    server: { domain: grafana.maxrommel.de, root_url: "https://grafana.maxrommel.de" }
 kubeEtcd: { enabled: false }
 kubeControllerManager: { enabled: false }
 kubeScheduler: { enabled: false }

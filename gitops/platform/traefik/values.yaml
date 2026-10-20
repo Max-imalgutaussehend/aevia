@@ -4,7 +4,8 @@ fullnameOverride: ingress
 deployment: { replicas: 1 }
 service: { spec: { type: ClusterIP } }
 ports:
-  web: { port: 8000, exposedPort: 80 }
+  # cloudflared (a pod) talks plain http to this entrypoint; trust its X-Forwarded-* so apps see https and the real client
+  web: { port: 8000, exposedPort: 80, forwardedHeaders: { trustedIPs: [10.244.0.0/16] } }
   websecure: { expose: { default: false } }
 providers:
   kubernetesCRD: { enabled: false }

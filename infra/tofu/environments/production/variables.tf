@@ -60,3 +60,9 @@ variable "nodes" {
     # "01" = { role = "agent", server_type = "cx33" }  # phase 23
   }
 }
+
+variable "access_emails" {
+  description = "Operator emails allowed through Cloudflare Access for gated hosts."
+  type        = list(string)
+  default     = []
+}

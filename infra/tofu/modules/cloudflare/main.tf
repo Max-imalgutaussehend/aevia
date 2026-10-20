@@ -42,8 +42,42 @@ resource "cloudflare_zero_trust_tunnel_cloudflared_config" "aevia" {
   }
 }
 
+locals {
+  gated = { for name, s in var.services : name => local.hostnames[name] if s.gate == "access" }
+}
+
+# One account-level policy shared by every gated host. Created before any gated DNS record (depends_on below),
+# so a host is never reachable without its Access app.
+resource "cloudflare_zero_trust_access_policy" "operator" {
+  count      = length(local.gated) > 0 ? 1 : 0
+  account_id = var.account_id
+  name       = "aevia-operator"
+  decision   = "allow"
+  include    = [for e in var.access_emails : { email = { email = e } }]
+
+  lifecycle {
+    precondition {
+      condition     = length(var.access_emails) > 0
+      error_message = "gate = access needs at least one entry in access_emails; refusing to publish ungated hosts."
+    }
+  }
+}
+
+resource "cloudflare_zero_trust_access_application" "gated" {
+  for_each = local.gated
+
+  account_id       = var.account_id
+  name             = each.key
+  domain           = each.value
+  type             = "self_hosted"
+  session_duration = "24h"
+  policies         = [{ id = cloudflare_zero_trust_access_policy.operator[0].id, precedence = 1 }]
+}
+
 resource "cloudflare_dns_record" "service" {
   for_each = local.hostnames
+
+  depends_on = [cloudflare_zero_trust_access_application.gated]
 
   zone_id = var.zone_id
   name    = each.value
