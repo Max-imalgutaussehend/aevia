@@ -1,6 +1,14 @@
-# Herdr workspace on the agent node (ADR-0036). One pod, persistent home, reached with
+# Herdr workspace (ADR-0036). One pod on the single node, low priority so it is the first to go under memory pressure.
+# Persistent home, reached with
 #   kubectl -n agents exec -it herdr-0 -- herdr
-# Not deployed until the agent node exists: see agents/herdr/README.md ("Enable").
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata: { name: agents-low }
+value: -100
+preemptionPolicy: Never
+globalDefault: false
+description: Agent workloads yield to the platform when the single node is short of memory.
+---
 apiVersion: apps/v1
 kind: StatefulSet
 metadata: { name: herdr, namespace: agents, labels: { app.kubernetes.io/name: herdr, app.kubernetes.io/part-of: aevia } }
@@ -13,18 +21,21 @@ spec:
     spec:
       serviceAccountName: agent
       automountServiceAccountToken: false
-      nodeSelector: { workload: agent }
-      tolerations: [{ key: workload, operator: Equal, value: agent, effect: NoSchedule }]
+      priorityClassName: agents-low
       securityContext: { runAsNonRoot: true, runAsUser: 10001, runAsGroup: 10001, fsGroup: 10001, seccompProfile: { type: RuntimeDefault } }
       containers:
         - name: herdr
           image: ghcr.io/max-imalgutaussehend/aevia-herdr@sha256:48204a93e2dca7ee9b3652a9442dedb73122b79e594b0d1706b300decf7b7c97
           env:
-            - { name: AI_GATEWAY_URL, value: "http://freellmapi.platform.svc.cluster.local:3001/v1" }
+            # FreeLLMAPI speaks both wire formats: OpenAI at /v1, Anthropic Messages at /v1/messages (Claude Code appends the path).
+            - { name: ANTHROPIC_BASE_URL, value: "http://freellmapi.platform.svc.cluster.local:3001" }
+            - { name: OPENAI_BASE_URL, value: "http://freellmapi.platform.svc.cluster.local:3001/v1" }
             - { name: S3_ENDPOINT, value: "http://s3.data.svc.cluster.local:8333" }
             - { name: S3_BUCKET, value: agent-workspace }
-          envFrom: [{ secretRef: { name: herdr-s3 } }] # AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY of the `agents` S3 identity
-          resources: { requests: { cpu: 250m, memory: 512Mi }, limits: { memory: 2Gi } }
+          envFrom:
+            - { secretRef: { name: herdr-s3 } } # AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY of the `agents` S3 identity
+            - { secretRef: { name: herdr-gateway, optional: true } } # ANTHROPIC_AUTH_TOKEN / OPENAI_API_KEY = FreeLLMAPI unified key (SOPS)
+          resources: { requests: { cpu: 100m, memory: 256Mi }, limits: { memory: 1Gi } }
           securityContext: { allowPrivilegeEscalation: false, capabilities: { drop: [ALL] } }
           volumeMounts:
             - { name: home, mountPath: /home/agent }

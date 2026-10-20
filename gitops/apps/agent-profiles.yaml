@@ -1,6 +1,3 @@
-# Argo CD app for the agent profiles. Enable with:
-#   git mv agents/herdr/enable/agent-profiles-app.yaml gitops/apps/agent-profiles.yaml
-# once the agent node is Ready (label workload=agent, taint workload=agent:NoSchedule).
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
