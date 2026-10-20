@@ -119,7 +119,9 @@ def render(s: dict, by_name: dict) -> str:
             "template": {
                 "metadata": {"labels": labels},
                 "spec": {
-                    "automountServiceAccountToken": False,
+                    # service_account: the pod gets its own account and its token (RBAC lives next to the manifests)
+                    "automountServiceAccountToken": bool(s.get("service_account")),
+                    **({"serviceAccountName": s["service_account"]} if s.get("service_account") else {}),
                     "securityContext": pod_sc,
                     "containers": [container],
                     "volumes": vols,

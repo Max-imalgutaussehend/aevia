@@ -99,6 +99,13 @@ def write_mcp():
     subprocess.run(["sops", "set", f, '["stringData"]["OIDC_MCP_SECRET"]', json.dumps(sec)], check=True, cwd=REPO, env=env)
     write("mcp-obsidian-env", "apps", {"OIDC_CLIENT_SECRET": sec})
 
+def write_mcp_ntfy():
+    """Password of the write-only ntfy user `aevia-mcp` (topic `aevia`). The user itself is created in ntfy with scripts/ntfy-user.sh."""
+    if (OUT / "aevia-mcp-ntfy.enc.yaml").exists():
+        print("keep    aevia-mcp-ntfy.enc.yaml")
+        return
+    write("aevia-mcp-ntfy", "apps", {"NTFY_USER": "aevia-mcp", "NTFY_PASSWORD": rnd(32), "NTFY_TOPIC": "aevia"})
+
 def main():
     # The n8n key came from the retired R1 server (.env); it is only needed while n8n-env does not exist yet.
     n8n_key = "" if (OUT / "n8n-env.enc.yaml").exists() else read_env(REPO / ".env", "N8N_ENCRYPTION_KEY")
@@ -126,6 +133,7 @@ def main():
     write_herdr_s3()
     write_forgejo()
     write_mcp()
+    write_mcp_ntfy()
     write("grafana-admin", "observability", {"admin-user": "admin", "admin-password": grafana})
     if not GEN.exists():
         GEN.parent.mkdir(parents=True, exist_ok=True)

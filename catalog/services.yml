@@ -15,6 +15,7 @@
 #   hold        reason string: the generator emits NO manifests for this service
 #   image       pinned image (tag or digest); required unless held
 #   gate        access = tofu creates a Cloudflare Access app (operator emails) before the DNS record exists
+#   service_account  name of a ServiceAccount (defined in gitops/base/platform) the pod runs as; its token is mounted
 #   managed_by  helm = deployed from a chart in gitops/apps; generator emits nothing, tofu still publishes the host
 #   scratch_paths  emptyDir mounts for directories the image expects to exist (e.g. ntfy cache)
 #   add_caps    capabilities added back after drop ALL (root images only; keep minimal)
@@ -96,9 +97,9 @@ services:
     scratch_paths: [/config, /data]
 
   - name: mcp
-    image: ghcr.io/max-imalgutaussehend/mcp-obsidian@sha256:5b1dd1ad610a1312ba5735b0ba06fbaae92cccdd93fb764e4e04dce63d023b49
+    image: ghcr.io/max-imalgutaussehend/aevia-mcp@sha256:f329dd248b6553feb75189a4f2ac1072dd03fb50a83640d9971458097a03b3be
     type: application
-    description: "Obsidian MCP server for claude.ai: read-only, OAuth via Authentik (repo mcp-obsidian)"
+    description: "Aevia MCP server: platform, metrics, logs, vault, AI gateway and push (repo aevia-mcp); private, OAuth via Authentik"
     port: 8000
     exposure: private
     gate: access
@@ -108,12 +109,15 @@ services:
     internet: true # Authentik introspection over its public hostname
     persistence: none
     uid: 10001
+    service_account: aevia-mcp # read-only cluster access, see gitops/base/platform/aevia-mcp.yaml
     healthcheck: /healthz
     scratch_paths: [/data, /home/mcp] # vault clone and git's home
     secret_env:
       - mcp-obsidian-env # OIDC client secret (SOPS)
+      - { name: aevia-mcp-ntfy, optional: true } # NTFY_USER / NTFY_PASSWORD of the write-only ntfy user (SOPS)
+      - { name: aevia-mcp-gateway, optional: true } # GATEWAY_API_KEY = FreeLLMAPI unified key; created by hand, never committed
       - { name: mcp-vault-git, optional: true } # VAULT_GIT_URL with a read token; created by hand, never committed
-    env: { PUBLIC_URL: "https://mcp.maxrommel.de", EXCLUDE_DIRS: "Privat", HOME: /home/mcp }
+    env: { PUBLIC_URL: "https://mcp.maxrommel.de", OIDC_CLIENT_ID: aevia-mcp, OIDC_ISSUER: "https://authentik.maxrommel.de/application/o/aevia-mcp/", EXCLUDE_DIRS: "Privat", HOME: /home/mcp }
 
   - name: longevity
     type: application

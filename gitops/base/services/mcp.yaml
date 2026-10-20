@@ -18,7 +18,8 @@ spec:
     metadata:
       labels: *id001
     spec:
-      automountServiceAccountToken: false
+      automountServiceAccountToken: true
+      serviceAccountName: aevia-mcp
       securityContext:
         seccompProfile:
           type: RuntimeDefault
@@ -28,7 +29,7 @@ spec:
         fsGroup: 10001
       containers:
       - name: mcp
-        image: ghcr.io/max-imalgutaussehend/mcp-obsidian@sha256:5b1dd1ad610a1312ba5735b0ba06fbaae92cccdd93fb764e4e04dce63d023b49
+        image: ghcr.io/max-imalgutaussehend/aevia-mcp@sha256:f329dd248b6553feb75189a4f2ac1072dd03fb50a83640d9971458097a03b3be
         ports:
         - name: http
           containerPort: 8000
@@ -60,6 +61,10 @@ spec:
         env:
         - name: PUBLIC_URL
           value: https://mcp.maxrommel.de
+        - name: OIDC_CLIENT_ID
+          value: aevia-mcp
+        - name: OIDC_ISSUER
+          value: https://authentik.maxrommel.de/application/o/aevia-mcp/
         - name: EXCLUDE_DIRS
           value: Privat
         - name: HOME
@@ -67,6 +72,12 @@ spec:
         envFrom:
         - secretRef:
             name: mcp-obsidian-env
+        - secretRef:
+            name: aevia-mcp-ntfy
+            optional: true
+        - secretRef:
+            name: aevia-mcp-gateway
+            optional: true
         - secretRef:
             name: mcp-vault-git
             optional: true
