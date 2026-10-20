@@ -78,6 +78,8 @@ def main():
     # Fresh gateway key. To adopt an existing instance replace this secret and add the seed (docs/runbooks/ai-gateway.md).
     write("freellmapi-env", "platform", {"ENCRYPTION_KEY": secrets.token_hex(32)})
     write_offsite()
+    if os.environ.get("TUNNEL_TOKEN"):  # from: GET /accounts/<id>/cfd_tunnel/<tunnel_id>/token
+        write("cloudflared-token", "edge", {"TUNNEL_TOKEN": os.environ["TUNNEL_TOKEN"]})
     write("grafana-admin", "observability", {"admin-user": "admin", "admin-password": grafana})
     if not GEN.exists():
         GEN.parent.mkdir(parents=True, exist_ok=True)
