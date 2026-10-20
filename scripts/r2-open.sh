@@ -17,6 +17,6 @@ pf observability svc/kps-prometheus 9090:9090
 pf kube-system svc/hubble-relay 12000:80
 pf platform svc/freellmapi 13001:3001
 echo "argocd   https://localhost:8080  (user admin; password: kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 -d)"
-echo "grafana  http://localhost:3000   (user admin; password in ~/.config/aevia/r2-generated.env as GRAFANA_ADMIN_PASSWORD)"
+echo "grafana  http://localhost:3000   (user admin; password: Bitwarden item "Aevia R2 - Grafana")"
 echo "prometheus http://localhost:9090 | hubble relay localhost:12000 | freellmapi http://localhost:13001"
 wait

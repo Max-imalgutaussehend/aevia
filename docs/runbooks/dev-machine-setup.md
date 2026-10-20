@@ -35,7 +35,7 @@ On the main machine: `scripts/export-dev-bundle.sh` (passphrase) or `scripts/exp
 
 What the files are: `~/.config/sops/age/keys.txt` (operator key; decrypts `gitops/secrets/*.enc.yaml`) and `aevia-cluster-key.txt`
 (the cluster's own key, keep a copy offline); `~/.config/aevia/secrets.env` (Hetzner token, object-storage keys, Cloudflare token, tunnel secret);
-`r2-generated.env` (Authentik/Grafana/S3 login values); `production.tfvars`/`backend.hcl` (see the `.example` files next to them).
+`r2-generated.env` (S3 access keys; admin logins for Argo CD, Grafana, Authentik and ntfy live in Bitwarden, folder "Aevia R2"); `production.tfvars`/`backend.hcl` (see the `.example` files next to them).
 
 Use them: `set -a; . ~/.config/aevia/secrets.env; set +a; export AWS_ACCESS_KEY_ID=$TF_VAR_object_storage_access_key AWS_SECRET_ACCESS_KEY=$TF_VAR_object_storage_secret_key`
 then `cd infra/tofu/environments/production && tofu init -backend-config=backend.hcl && tofu plan -var-file=production.tfvars`.
