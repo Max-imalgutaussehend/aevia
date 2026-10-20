@@ -8,7 +8,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/Max-imalgutaussehend/life-server.git
+    repoURL: https://github.com/Max-imalgutaussehend/aevia.git
     targetRevision: main
     path: gitops/base/services
   destination:

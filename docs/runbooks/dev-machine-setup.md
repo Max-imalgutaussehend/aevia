@@ -10,7 +10,7 @@ Arch/Omarchy: `sudo pacman -S --needed git github-cli openssh opentofu kubectl h
 ## 2. Repo
 
     gh auth login                       # GitHub account Max-imalgutaussehend
-    gh repo clone Max-imalgutaussehend/life-server && cd life-server && git checkout r2
+    gh repo clone Max-imalgutaussehend/aevia && cd life-server && git checkout r2
 
 Layout and phase status: `README.md`, `docs/migration/R2-PLAN.md`, ADR-0028. Everything on the cluster is applied by
 Argo CD from branch `r2`; pushing a manifest change is the deploy.

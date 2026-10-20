@@ -14,7 +14,7 @@ spec:
     helm:
       valueFiles:
       - $values/gitops/platform/traefik/values.yaml
-  - repoURL: https://github.com/Max-imalgutaussehend/life-server.git
+  - repoURL: https://github.com/Max-imalgutaussehend/aevia.git
     targetRevision: main
     ref: values
   destination:

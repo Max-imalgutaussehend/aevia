@@ -100,14 +100,8 @@ def write_mcp():
     write("mcp-obsidian-env", "apps", {"OIDC_CLIENT_SECRET": sec})
 
 def main():
-    n8n_key = read_env(REPO / ".env", "N8N_ENCRYPTION_KEY")
-    if "--verify-r1" in sys.argv:
-        remote = subprocess.run(["ssh", "-o", "BatchMode=yes", "life-server",
-                                 "docker exec prod-n8n printenv N8N_ENCRYPTION_KEY | sha256sum | cut -d' ' -f1"],
-                                capture_output=True, text=True, check=True).stdout.strip()
-        if remote != hashlib.sha256((n8n_key + "\n").encode()).hexdigest():
-            raise SystemExit("local .env N8N_ENCRYPTION_KEY differs from running R1 container")
-        print("verified N8N_ENCRYPTION_KEY matches R1")
+    # The n8n key came from the retired R1 server (.env); it is only needed while n8n-env does not exist yet.
+    n8n_key = "" if (OUT / "n8n-env.enc.yaml").exists() else read_env(REPO / ".env", "N8N_ENCRYPTION_KEY")
     pg, n8n_pw, ak_pw, redis = rnd(), rnd(), rnd(), rnd()
     ak_boot, ak_token, grafana = rnd(24), rnd(40), rnd(24)
     s3_ak, s3_sk = rnd(20), rnd(40)

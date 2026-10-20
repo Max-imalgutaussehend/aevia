@@ -16,6 +16,6 @@ spec:
       prune: false
       selfHeal: true
   source:
-    repoURL: https://github.com/Max-imalgutaussehend/life-server.git
+    repoURL: https://github.com/Max-imalgutaussehend/aevia.git
     targetRevision: main
     path: gitops/base/platform

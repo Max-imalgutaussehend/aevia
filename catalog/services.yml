@@ -70,7 +70,7 @@ services:
       NODES_EXCLUDE: '["n8n-nodes-base.readWriteFile","n8n-nodes-base.executeCommand"]'
 
   - name: portfolio
-    image: ghcr.io/max-imalgutaussehend/site-maxrommel@sha256:269d9926b684b8f0e86a0e904d6beb532daf17d0b2e240dc811f92ba8fc4d712
+    image: ghcr.io/max-imalgutaussehend/site-maxrommel@sha256:704daa38e87599861dede834f243a15307784ca19e44aac2cc401599fef6f9d0
     type: application
     description: "Static personal site on the bare domain"
     port: 8080
