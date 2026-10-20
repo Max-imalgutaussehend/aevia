@@ -70,7 +70,7 @@ services:
       NODES_EXCLUDE: '["n8n-nodes-base.readWriteFile","n8n-nodes-base.executeCommand"]'
 
   - name: portfolio
-    image: ghcr.io/max-imalgutaussehend/aevia-portfolio@sha256:c1188baacf660cd3e7ce82cb2faa4543b909838874db9d0d73030fbe620c0d4d
+    image: ghcr.io/max-imalgutaussehend/aevia-portfolio@sha256:9a8ba981b4b3eaefe2a0f7df28c1f2e65e1a3e59ba0cba0806fd926c5f552f2d
     type: application
     description: "Static personal site on the bare domain"
     port: 8080
