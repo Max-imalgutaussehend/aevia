@@ -10,9 +10,14 @@ spec:
     repoURL: https://github.com/Max-imalgutaussehend/life-server.git
     targetRevision: r2
     path: gitops/apps
-    directory: { recurse: true }
+    directory:
+      recurse: true
   destination:
     server: https://kubernetes.default.svc
     namespace: argocd
   syncPolicy:
-    syncOptions: [CreateNamespace=true]
+    syncOptions:
+    - CreateNamespace=true
+    automated:
+      prune: false
+      selfHeal: true

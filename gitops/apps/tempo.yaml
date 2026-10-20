@@ -13,6 +13,9 @@ spec:
   syncPolicy:
     syncOptions:
     - ServerSideApply=true
+    automated:
+      prune: false
+      selfHeal: true
   sources:
   - repoURL: https://grafana.github.io/helm-charts
     chart: tempo

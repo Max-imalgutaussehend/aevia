@@ -3,13 +3,19 @@ kind: Application
 metadata:
   name: backup
   namespace: argocd
-  annotations: { argocd.argoproj.io/sync-wave: "4" }
+  annotations:
+    argocd.argoproj.io/sync-wave: '4'
 spec:
   project: default
   source:
     repoURL: https://github.com/Max-imalgutaussehend/life-server.git
     targetRevision: r2
     path: gitops/base/backup
-  destination: { server: https://kubernetes.default.svc }
+  destination:
+    server: https://kubernetes.default.svc
   syncPolicy:
-    syncOptions: [ServerSideApply=true]
+    syncOptions:
+    - ServerSideApply=true
+    automated:
+      prune: false
+      selfHeal: true

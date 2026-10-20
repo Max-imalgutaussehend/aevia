@@ -3,17 +3,26 @@ kind: Application
 metadata:
   name: ingress
   namespace: argocd
-  annotations: { argocd.argoproj.io/sync-wave: "2" }
+  annotations:
+    argocd.argoproj.io/sync-wave: '2'
 spec:
   project: default
   sources:
-    - repoURL: https://traefik.github.io/charts
-      chart: traefik
-      targetRevision: 41.7.0
-      helm: { valueFiles: [$values/gitops/platform/traefik/values.yaml] }
-    - repoURL: https://github.com/Max-imalgutaussehend/life-server.git
-      targetRevision: r2
-      ref: values
-  destination: { server: https://kubernetes.default.svc, namespace: ingress }
+  - repoURL: https://traefik.github.io/charts
+    chart: traefik
+    targetRevision: 41.7.0
+    helm:
+      valueFiles:
+      - $values/gitops/platform/traefik/values.yaml
+  - repoURL: https://github.com/Max-imalgutaussehend/life-server.git
+    targetRevision: r2
+    ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ingress
   syncPolicy:
-    syncOptions: [ServerSideApply=true]
+    syncOptions:
+    - ServerSideApply=true
+    automated:
+      prune: false
+      selfHeal: true

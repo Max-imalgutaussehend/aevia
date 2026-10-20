@@ -12,6 +12,9 @@ spec:
   syncPolicy:
     syncOptions:
     - ServerSideApply=true
+    automated:
+      prune: false
+      selfHeal: true
   source:
     repoURL: https://github.com/Max-imalgutaussehend/life-server.git
     targetRevision: r2

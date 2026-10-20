@@ -10,7 +10,7 @@ R1 deploys with `make deploy`; R2 needs pull-based, drift-correcting delivery (e
 
 ## Decision
 
-Argo CD app-of-apps in `gitops/`, pointed at `main`. Manual sync until phase 21 wires CI.
+Argo CD app-of-apps in `gitops/`, pointed at `main`. Automated sync (selfHeal, no prune).wires CI.
 
 ## Verification
 
