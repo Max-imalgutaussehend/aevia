@@ -145,7 +145,7 @@ def render(s: dict, by_name: dict) -> str:
             dns = dep_s.get("namespace", NS_BY_TYPE[dep_s["type"]])
             egress.append({"to": [{"namespaceSelector": {"matchLabels": {"kubernetes.io/metadata.name": dns}},
                                    "podSelector": {"matchLabels": {"app.kubernetes.io/name": need}}}],
-                           "ports": [{"port": dep_s["port"]}]})
+                           "ports": [{"port": dep_s.get("container_port", dep_s["port"])}]})
     if s.get("internet"):
         egress.append({"to": [{"ipBlock": {"cidr": "0.0.0.0/0", "except": ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"]}}],
                        "ports": [{"port": 443}, {"port": 80}]})

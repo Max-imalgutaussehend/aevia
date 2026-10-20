@@ -75,7 +75,8 @@ resource "hcloud_server" "node" {
 
   lifecycle {
     # A changed image/user_data must never silently rebuild a node that holds data.
-    ignore_changes = [image, user_data, ssh_keys]
+    # network: the provider reports the auto-assigned IP as drift and would detach/reattach the NIC.
+    ignore_changes = [image, user_data, ssh_keys, network]
   }
 }
 

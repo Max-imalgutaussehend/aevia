@@ -123,7 +123,7 @@ services:
     port: 3001
     exposure: private
     auth: authentik
-    needs: [ntfy]
+    needs: [ntfy, n8n, portfolio, earnings-alpha, regime-lens] # in-cluster monitors
     persistence: 1Gi # TODO size
     data_path: /app/data
     env: { TZ: Europe/Berlin, UPTIME_KUMA_PORT: "3001" }
