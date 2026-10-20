@@ -45,13 +45,12 @@ echo "-- s3 auth"
 kubectl -n data rollout status statefulset/s3 --timeout=240s
 # Anonymous access must be refused. Without the identities file SeaweedFS answers 200 here (verified
 # locally, together with signed valid/invalid keys using aws-cli, which misbehaves on the CI runner).
-code=000
-for i in 1 2 3 4 5 6; do
-  code=$(kubectl -n data run "s3-anon-$i" --rm -i --restart=Never --image=curlimages/curl:8.10.1 --command -- \
-    curl -s -m 10 -o /dev/null -w '%{http_code}' http://s3:8333/ 2>/dev/null | tail -c 3 || true)
-  [[ $code == 403 ]] && break
+status=none
+for i in 1 2 3 4 5 6 7 8; do
+  status=$(kubectl -n data exec s3-0 -- wget -S -q -O /dev/null http://127.0.0.1:8333/ 2>&1 | grep -m1 'HTTP/' | tr -d '\r' || true)
+  [[ $status == *403* ]] && break
   sleep 10
 done
-echo "anonymous S3 request -> $code (expect 403)"
-[[ $code == 403 ]] || { kubectl -n data logs s3-0 --tail=20 || true; echo "FAIL: anonymous S3 access not refused"; exit 1; }
+echo "anonymous S3 request -> ${status:-no response} (expect 403)"
+[[ $status == *403* ]] || { kubectl -n data logs s3-0 --tail=20 || true; echo "FAIL: anonymous S3 access not refused"; exit 1; }
 echo PASS
