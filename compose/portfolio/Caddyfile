@@ -77,7 +77,10 @@ http://:8080 {
 	# "nobody may embed me", INCLUDING our own CV tab, and a CSP
 	# frame-ancestors overrides X-Frame-Options where both are present. Fixing
 	# only X-Frame-Options therefore changed nothing visible.
-	header @nonpdf Content-Security-Policy "default-src 'none'; style-src 'self'; img-src 'self'; object-src 'self'; frame-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+	# The site is a built al-folio (Jekyll) page, not the script-free page this policy was first written for: it needs
+	# its theme scripts, jQuery/MDB from jsDelivr, Google Fonts and the icon fonts. Only these hosts are allowed;
+	# connect-src stays 'self', so a script cannot send data anywhere else.
+	header @nonpdf Content-Security-Policy "default-src 'none'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://d1bxh8uas1mnw7.cloudfront.net https://badge.dimensions.ai https://embed.altmetric.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; img-src 'self' data: https:; connect-src 'self'; object-src 'self'; frame-src 'self'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'"
 	header @pdf Content-Security-Policy "default-src 'none'; frame-ancestors 'self'"
 
 	# Health endpoint for the container healthcheck and Uptime Kuma.
