@@ -18,7 +18,7 @@ spec:
       securityContext: { runAsNonRoot: true, runAsUser: 10001, runAsGroup: 10001, fsGroup: 10001, seccompProfile: { type: RuntimeDefault } }
       containers:
         - name: herdr
-          image: ghcr.io/max-imalgutaussehend/aevia-herdr@sha256:REPLACE_WITH_DIGEST_FROM_CI
+          image: ghcr.io/max-imalgutaussehend/aevia-herdr@sha256:48204a93e2dca7ee9b3652a9442dedb73122b79e594b0d1706b300decf7b7c97
           env:
             - { name: AI_GATEWAY_URL, value: "http://freellmapi.platform.svc.cluster.local:3001/v1" }
             - { name: S3_ENDPOINT, value: "http://s3.data.svc.cluster.local:8333" }
