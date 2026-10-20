@@ -21,6 +21,10 @@ locals {
   }
 }
 
+locals {
+  alias_hostnames = flatten([for s in values(var.services) : [for a in s.aliases : "${a}.${var.domain}"]])
+}
+
 # One wildcard-style rule set: every hostname goes to the in-cluster ingress,
 # which routes by Host header. Routing logic stays in Kubernetes (ADR-0028).
 resource "cloudflare_zero_trust_tunnel_cloudflared_config" "aevia" {
@@ -29,7 +33,7 @@ resource "cloudflare_zero_trust_tunnel_cloudflared_config" "aevia" {
 
   config = {
     ingress = concat(
-      [for h in values(local.hostnames) : {
+      [for h in concat(values(local.hostnames), local.alias_hostnames) : {
         hostname = h
         service  = var.ingress_service
       }],

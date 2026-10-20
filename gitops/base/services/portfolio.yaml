@@ -108,6 +108,16 @@ spec:
             name: portfolio
             port:
               name: http
+  - host: www.maxrommel.de
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: portfolio
+            port:
+              name: http
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy

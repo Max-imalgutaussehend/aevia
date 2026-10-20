@@ -23,7 +23,7 @@ provider "aws" {
 
 locals {
   catalog  = yamldecode(file("${path.root}/../../../../catalog/services.yml"))
-  services = { for s in local.catalog.services : s.name => { exposure = s.exposure, apex = try(s.apex, false) } if try(s.hold, "") == "" }
+  services = { for s in local.catalog.services : s.name => { exposure = s.exposure, apex = try(s.apex, false), aliases = try(s.aliases, []) } if try(s.hold, "") == "" }
 }
 
 module "hetzner" {

@@ -97,6 +97,7 @@ services:
     port: 8080
     exposure: public
     apex: true
+    aliases: [www]
     needs: []
     persistence: none
     uid: 65532 # image sets USER 65532

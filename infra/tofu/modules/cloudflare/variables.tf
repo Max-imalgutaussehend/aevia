@@ -29,9 +29,10 @@ variable "ingress_service" {
 }
 
 variable "services" {
-  description = "Catalog services to publish: name => {exposure, apex}. Rendered from catalog/services.yml by the caller."
+  description = "Catalog services to publish: name => {exposure, apex, aliases}. Rendered from catalog/services.yml by the caller."
   type = map(object({
     exposure = string
     apex     = optional(bool, false)
+    aliases  = optional(list(string), []) # extra subdomains routed through the tunnel; their DNS records are managed elsewhere
   }))
 }
