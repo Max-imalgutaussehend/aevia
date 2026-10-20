@@ -14,8 +14,23 @@ grafana:
   admin: { existingSecret: grafana-admin, userKey: admin-user, passwordKey: admin-password }
   resources: { requests: { cpu: 50m, memory: 128Mi }, limits: { memory: 384Mi } }
   persistence: { enabled: true, size: 2Gi }
+  envFromSecret: grafana-oauth # GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET (SOPS)
   grafana.ini:
     server: { domain: grafana.maxrommel.de, root_url: "https://grafana.maxrommel.de" }
+    auth.generic_oauth:
+      enabled: true
+      name: Authentik
+      client_id: grafana
+      scopes: openid profile email groups
+      auth_url: https://authentik.maxrommel.de/application/o/authorize/
+      token_url: https://authentik.maxrommel.de/application/o/token/
+      api_url: https://authentik.maxrommel.de/application/o/userinfo/
+      signout_redirect_url: https://authentik.maxrommel.de/application/o/grafana/end-session/
+      email_attribute_path: email
+      login_attribute_path: preferred_username
+      role_attribute_path: "contains(groups[*], 'operator') && 'Admin' || 'Viewer'"
+      allow_assign_grafana_admin: true
+      use_pkce: true
 kubeEtcd: { enabled: false }
 kubeControllerManager: { enabled: false }
 kubeScheduler: { enabled: false }

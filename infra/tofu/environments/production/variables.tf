@@ -66,3 +66,10 @@ variable "access_emails" {
   type        = list(string)
   default     = []
 }
+
+variable "authentik_cloudflare_secret" {
+  description = "OIDC client secret for Cloudflare Access (from the SOPS secret authentik-env, key OIDC_CLOUDFLARE_SECRET)."
+  type        = string
+  default     = ""
+  sensitive   = true
+}

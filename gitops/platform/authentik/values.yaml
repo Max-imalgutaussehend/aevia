@@ -15,3 +15,5 @@ worker:
   envFrom: [{ secretRef: { name: authentik-env } }]
   resources: { requests: { cpu: 100m, memory: 512Mi }, limits: { memory: 1Gi } }
 postgresql: { enabled: false }
+blueprints:
+  configMaps: [authentik-aevia-blueprint] # gitops/base/platform/authentik-blueprint.yaml

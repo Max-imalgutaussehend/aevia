@@ -22,12 +22,12 @@ def read_env(path, key):
             return line.split("=", 1)[1].strip().strip('"').strip("'")
     raise SystemExit(f"{key} not in {path}")
 
-def write(name, ns, data):
+def write(name, ns, data, labels=None):
     f = OUT / f"{name}.enc.yaml"
     if f.exists():
         print(f"keep    {f.name}")
         return
-    doc = {"apiVersion": "v1", "kind": "Secret", "metadata": {"name": name, "namespace": ns},
+    doc = {"apiVersion": "v1", "kind": "Secret", "metadata": {"name": name, "namespace": ns, **({"labels": labels} if labels else {})},
            "type": "Opaque", "stringData": data}
     f.write_text(yaml.safe_dump(doc, sort_keys=False))
     subprocess.run(["sops", "-e", "-i", str(f)], check=True, cwd=REPO,
@@ -51,6 +51,20 @@ def write_offsite(name="backup-offsite", ns="data", prefix="postgres"):
         "RCLONE_CONFIG_HZ_ACCESS_KEY_ID": ak, "RCLONE_CONFIG_HZ_SECRET_ACCESS_KEY": sk,
         "RCLONE_CONFIG_ENC_TYPE": "crypt", "RCLONE_CONFIG_ENC_REMOTE": f"hz:aevia-backups/{prefix}",
         "RCLONE_CONFIG_ENC_PASSWORD": obscure(rnd(40)), "RCLONE_CONFIG_ENC_PASSWORD2": obscure(rnd(40))})
+
+def write_oidc():
+    """Client secrets for the Authentik OIDC providers (blueprint in gitops/base/platform): one random value each,
+    stored in authentik-env (read by the blueprint via !Env) and in the consuming namespace."""
+    if (OUT / "grafana-oauth.enc.yaml").exists():
+        print("keep    grafana-oauth.enc.yaml")
+        return
+    env = {"SOPS_AGE_KEY_FILE": str(Path.home() / ".config/sops/age/keys.txt")}
+    sec = {"cloudflare": rnd(48), "grafana": rnd(48), "argocd": rnd(48)}
+    f = str(OUT / "authentik-env.enc.yaml")
+    for k, v in (("OIDC_CLOUDFLARE_SECRET", sec["cloudflare"]), ("OIDC_GRAFANA_SECRET", sec["grafana"]), ("OIDC_ARGOCD_SECRET", sec["argocd"])):
+        subprocess.run(["sops", "set", f, f'["stringData"]["{k}"]', json.dumps(v)], check=True, cwd=REPO, env={**os.environ, **env})
+    write("grafana-oauth", "observability", {"GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET": sec["grafana"]})
+    write("argocd-oidc", "argocd", {"clientSecret": sec["argocd"]}, labels={"app.kubernetes.io/part-of": "argocd"})
 
 def main():
     n8n_key = read_env(REPO / ".env", "N8N_ENCRYPTION_KEY")
@@ -81,6 +95,7 @@ def main():
     write_offsite("freellmapi-backup-offsite", "platform", "freellmapi")
     if os.environ.get("TUNNEL_TOKEN"):  # from: GET /accounts/<id>/cfd_tunnel/<tunnel_id>/token
         write("cloudflared-token", "edge", {"TUNNEL_TOKEN": os.environ["TUNNEL_TOKEN"]})
+    write_oidc()
     write("grafana-admin", "observability", {"admin-user": "admin", "admin-password": grafana})
     if not GEN.exists():
         GEN.parent.mkdir(parents=True, exist_ok=True)

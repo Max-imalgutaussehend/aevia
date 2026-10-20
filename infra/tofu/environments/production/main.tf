@@ -44,6 +44,8 @@ module "cloudflare" {
   tunnel_secret = var.tunnel_secret
   services      = local.services
   access_emails = var.access_emails
+
+  authentik_client_secret = var.authentik_cloudflare_secret
 }
 
 module "storage" {

@@ -6,6 +6,14 @@ configs:
     server.insecure: true      # TLS terminates at Cloudflare; the Service is ClusterIP only
   cm:
     exec.enabled: "false"
+    url: https://argocd.maxrommel.de
+    # Authentik OIDC (ADR-0035). The client secret lives in Secret argocd-oidc (SOPS, label part-of=argocd).
+    oidc.config: |
+      name: Authentik
+      issuer: https://authentik.maxrommel.de/application/o/argocd/
+      clientID: argocd
+      clientSecret: $argocd-oidc:clientSecret
+      requestedScopes: [openid, profile, email, groups]
     users.anonymous.enabled: "false"
     kustomize.buildOptions: --enable-alpha-plugins --enable-exec
     # Traefik is ClusterIP behind cloudflared, so Ingresses never get a load-balancer address.
@@ -13,6 +21,11 @@ configs:
       hs = {}
       hs.status = "Healthy"
       return hs
+  rbac:
+    policy.default: role:readonly
+    policy.csv: |
+      g, operator, role:admin
+    scopes: "[groups]"
 server:
   service:
     type: ClusterIP

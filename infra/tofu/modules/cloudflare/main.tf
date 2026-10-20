@@ -86,3 +86,21 @@ resource "cloudflare_dns_record" "service" {
   proxied = true
   ttl     = 1
 }
+
+# Authentik as an additional login method for every Access app. The one-time PIN stays available, so a broken
+# Authentik cannot lock the operator out; apps without allowed_idps offer all configured methods.
+resource "cloudflare_zero_trust_access_identity_provider" "authentik" {
+  count      = var.authentik_client_secret == "" ? 0 : 1
+  account_id = var.account_id
+  name       = "Authentik"
+  type       = "oidc"
+  config = {
+    client_id     = "cloudflare-access"
+    client_secret = var.authentik_client_secret
+    auth_url      = "${var.authentik_url}/application/o/authorize/"
+    token_url     = "${var.authentik_url}/application/o/token/"
+    certs_url     = "${var.authentik_url}/application/o/cloudflare-access/jwks/"
+    scopes        = ["openid", "email", "profile"]
+    pkce_enabled  = true
+  }
+}

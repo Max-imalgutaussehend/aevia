@@ -43,3 +43,16 @@ variable "access_emails" {
   type        = list(string)
   default     = []
 }
+
+variable "authentik_client_secret" {
+  description = "OIDC client secret of the Authentik provider `cloudflare-access` (blueprint in gitops/base/platform). Empty = no Authentik login method."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "authentik_url" {
+  description = "Public base URL of Authentik."
+  type        = string
+  default     = "https://authentik.maxrommel.de"
+}
