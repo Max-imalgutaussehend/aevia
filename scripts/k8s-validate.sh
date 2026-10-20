@@ -33,6 +33,10 @@ echo "== workload hardening policy"
 python3 tests/policy/check_workloads.py
 echo "== no plaintext secrets / :latest"
 if grep -rEn 'image: .*:latest' gitops; then echo "FAIL: :latest"; exit 1; fi
-if ls gitops/secrets/*.yaml 2>/dev/null | grep -v -E '\.(example|enc)\.yaml$'; then echo "FAIL: unencrypted secret"; exit 1; fi
-if grep -L '^sops:' gitops/secrets/*.enc.yaml 2>/dev/null; then echo "FAIL: .enc.yaml without sops block"; exit 1; fi
+if ls gitops/secrets/*.yaml 2>/dev/null | grep -v -E "\.(example|enc)\.yaml$|secret-generator\.yaml$|kustomization\.yaml$"; then echo "FAIL: unencrypted secret"; exit 1; fi
+for f in gitops/secrets/*.enc.yaml; do
+  [[ -e $f ]] || continue
+  grep -q '^sops:' "$f" || { echo "FAIL: $f has no sops block"; exit 1; }
+  grep -q 'ENC\[' "$f" || { echo "FAIL: $f is not encrypted"; exit 1; }
+done
 echo OK

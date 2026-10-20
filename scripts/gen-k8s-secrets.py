@@ -1,0 +1,69 @@
+#!/usr/bin/env python3
+"""Create gitops/secrets/*.enc.yaml with random values (idempotent: existing files are kept).
+
+Values that must come from R1 (N8N_ENCRYPTION_KEY) are read from the local .env and, if
+--verify-r1 is given, compared by SHA-256 with the running R1 container before use.
+Anything the operator should be able to log in with is also written to
+~/.config/aevia/r2-generated.env (mode 600), never printed.
+"""
+import hashlib, json, os, secrets, subprocess, sys
+from pathlib import Path
+import yaml
+
+REPO = Path(__file__).resolve().parent.parent
+OUT = REPO / "gitops" / "secrets"
+GEN = Path.home() / ".config" / "aevia" / "r2-generated.env"
+
+def rnd(n=32): return secrets.token_urlsafe(n)[:n]
+
+def read_env(path, key):
+    for line in Path(path).read_text().splitlines():
+        if line.startswith(key + "="):
+            return line.split("=", 1)[1].strip().strip('"').strip("'")
+    raise SystemExit(f"{key} not in {path}")
+
+def write(name, ns, data):
+    f = OUT / f"{name}.enc.yaml"
+    if f.exists():
+        print(f"keep    {f.name}")
+        return
+    doc = {"apiVersion": "v1", "kind": "Secret", "metadata": {"name": name, "namespace": ns},
+           "type": "Opaque", "stringData": data}
+    f.write_text(yaml.safe_dump(doc, sort_keys=False))
+    subprocess.run(["sops", "-e", "-i", str(f)], check=True, cwd=REPO,
+                   env={**os.environ, "SOPS_AGE_KEY_FILE": str(Path.home() / ".config/sops/age/keys.txt")})
+    print(f"created {f.name}")
+
+def main():
+    n8n_key = read_env(REPO / ".env", "N8N_ENCRYPTION_KEY")
+    if "--verify-r1" in sys.argv:
+        remote = subprocess.run(["ssh", "-o", "BatchMode=yes", "life-server",
+                                 "docker exec prod-n8n printenv N8N_ENCRYPTION_KEY | sha256sum | cut -d' ' -f1"],
+                                capture_output=True, text=True, check=True).stdout.strip()
+        if remote != hashlib.sha256((n8n_key + "\n").encode()).hexdigest():
+            raise SystemExit("local .env N8N_ENCRYPTION_KEY differs from running R1 container")
+        print("verified N8N_ENCRYPTION_KEY matches R1")
+    pg, n8n_pw, ak_pw, redis = rnd(), rnd(), rnd(), rnd()
+    ak_boot, ak_token, grafana = rnd(24), rnd(40), rnd(24)
+    s3_ak, s3_sk = rnd(20), rnd(40)
+    write("postgres-auth", "data", {"POSTGRES_USER": "postgres", "POSTGRES_PASSWORD": pg,
+                                    "POSTGRES_N8N_PASSWORD": n8n_pw, "POSTGRES_AUTHENTIK_PASSWORD": ak_pw})
+    write("pg-backup-auth", "data", {"PGUSER": "postgres", "PGPASSWORD": pg})
+    write("redis-auth", "data", {"REDIS_PASSWORD": redis})
+    write("s3-auth", "data", {"s3.json": json.dumps({"identities": [{"name": "admin",
+          "credentials": [{"accessKey": s3_ak, "secretKey": s3_sk}],
+          "actions": ["Admin", "Read", "Write", "List", "Tagging"]}]})})
+    write("n8n-env", "apps", {"N8N_ENCRYPTION_KEY": n8n_key, "DB_POSTGRESDB_PASSWORD": n8n_pw,
+                              "QUEUE_BULL_REDIS_PASSWORD": redis})
+    write("authentik-env", "platform", {"AUTHENTIK_SECRET_KEY": rnd(50), "AUTHENTIK_POSTGRESQL__PASSWORD": ak_pw,
+                                        "AUTHENTIK_BOOTSTRAP_PASSWORD": ak_boot, "AUTHENTIK_BOOTSTRAP_TOKEN": ak_token})
+    write("grafana-admin", "observability", {"admin-user": "admin", "admin-password": grafana})
+    if not GEN.exists():
+        GEN.parent.mkdir(parents=True, exist_ok=True)
+        GEN.touch(mode=0o600)
+        GEN.write_text(f"AUTHENTIK_BOOTSTRAP_PASSWORD={ak_boot}\nGRAFANA_ADMIN_PASSWORD={grafana}\n"
+                       f"S3_ACCESS_KEY={s3_ak}\nS3_SECRET_KEY={s3_sk}\n")
+        print(f"login values saved to {GEN} (600)")
+
+if __name__ == "__main__":
+    main()
