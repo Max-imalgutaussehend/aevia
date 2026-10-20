@@ -1,0 +1,19 @@
+# Argo CD app for the agent profiles. Enable with:
+#   git mv agents/herdr/enable/agent-profiles-app.yaml gitops/apps/agent-profiles.yaml
+# once the agent node is Ready (label workload=agent, taint workload=agent:NoSchedule).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: agent-profiles
+  namespace: argocd
+  annotations: { argocd.argoproj.io/sync-wave: '5' }
+spec:
+  project: default
+  destination: { server: https://kubernetes.default.svc, namespace: agents }
+  source:
+    repoURL: https://github.com/Max-imalgutaussehend/life-server.git
+    targetRevision: r2
+    path: agents/herdr/profiles
+  syncPolicy:
+    automated: { prune: false, selfHeal: true }
+    syncOptions: [ServerSideApply=true]

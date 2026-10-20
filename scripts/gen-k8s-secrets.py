@@ -66,6 +66,17 @@ def write_oidc():
     write("grafana-oauth", "observability", {"GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET": sec["grafana"]})
     write("argocd-oidc", "argocd", {"clientSecret": sec["argocd"]}, labels={"app.kubernetes.io/part-of": "argocd"})
 
+def write_herdr_s3():
+    """Credentials of the S3 identity `agents` (bucket agent-workspace only), taken from s3-auth."""
+    if (OUT / "herdr-s3.enc.yaml").exists():
+        print("keep    herdr-s3.enc.yaml")
+        return
+    env = {**os.environ, "SOPS_AGE_KEY_FILE": str(Path.home() / ".config/sops/age/keys.txt")}
+    doc = yaml.safe_load(subprocess.run(["sops", "-d", str(OUT / "s3-auth.enc.yaml")], capture_output=True, text=True, check=True, env=env).stdout)
+    ident = next(i for i in json.loads(doc["stringData"]["s3.json"])["identities"] if i["name"] == "agents")
+    cred = ident["credentials"][0]
+    write("herdr-s3", "agents", {"AWS_ACCESS_KEY_ID": cred["accessKey"], "AWS_SECRET_ACCESS_KEY": cred["secretKey"]})
+
 def main():
     n8n_key = read_env(REPO / ".env", "N8N_ENCRYPTION_KEY")
     if "--verify-r1" in sys.argv:
@@ -96,6 +107,7 @@ def main():
     if os.environ.get("TUNNEL_TOKEN"):  # from: GET /accounts/<id>/cfd_tunnel/<tunnel_id>/token
         write("cloudflared-token", "edge", {"TUNNEL_TOKEN": os.environ["TUNNEL_TOKEN"]})
     write_oidc()
+    write_herdr_s3()
     write("grafana-admin", "observability", {"admin-user": "admin", "admin-password": grafana})
     if not GEN.exists():
         GEN.parent.mkdir(parents=True, exist_ok=True)

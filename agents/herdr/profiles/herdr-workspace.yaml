@@ -1,0 +1,64 @@
+# Herdr workspace on the agent node (ADR-0036). One pod, persistent home, reached with
+#   kubectl -n agents exec -it herdr-0 -- herdr
+# Not deployed until the agent node exists: see agents/herdr/README.md ("Enable").
+apiVersion: apps/v1
+kind: StatefulSet
+metadata: { name: herdr, namespace: agents, labels: { app.kubernetes.io/name: herdr, app.kubernetes.io/part-of: aevia } }
+spec:
+  serviceName: herdr
+  replicas: 1
+  selector: { matchLabels: { app.kubernetes.io/name: herdr } }
+  template:
+    metadata: { labels: { app.kubernetes.io/name: herdr, app.kubernetes.io/part-of: aevia } }
+    spec:
+      serviceAccountName: agent
+      automountServiceAccountToken: false
+      nodeSelector: { workload: agent }
+      tolerations: [{ key: workload, operator: Equal, value: agent, effect: NoSchedule }]
+      securityContext: { runAsNonRoot: true, runAsUser: 10001, runAsGroup: 10001, fsGroup: 10001, seccompProfile: { type: RuntimeDefault } }
+      containers:
+        - name: herdr
+          image: ghcr.io/max-imalgutaussehend/aevia-herdr@sha256:REPLACE_WITH_DIGEST_FROM_CI
+          env:
+            - { name: AI_GATEWAY_URL, value: "http://freellmapi.platform.svc.cluster.local:3001/v1" }
+            - { name: S3_ENDPOINT, value: "http://s3.data.svc.cluster.local:8333" }
+            - { name: S3_BUCKET, value: agent-workspace }
+          envFrom: [{ secretRef: { name: herdr-s3 } }] # AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY of the `agents` S3 identity
+          resources: { requests: { cpu: 250m, memory: 512Mi }, limits: { memory: 2Gi } }
+          securityContext: { allowPrivilegeEscalation: false, capabilities: { drop: [ALL] } }
+          volumeMounts:
+            - { name: home, mountPath: /home/agent }
+            - { name: tmp, mountPath: /tmp }
+      volumes: [{ name: tmp, emptyDir: {} }]
+  volumeClaimTemplates:
+    - metadata: { name: home }
+      spec: { accessModes: [ReadWriteOnce], resources: { requests: { storage: 10Gi } } }
+---
+# Agents may call the AI gateway and the agent-workspace bucket, nothing else inside the cluster.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: { name: herdr-gateway-and-s3, namespace: agents }
+spec:
+  podSelector: { matchLabels: { app.kubernetes.io/name: herdr } }
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: platform } }
+          podSelector: { matchLabels: { app.kubernetes.io/name: freellmapi } }
+      ports: [{ port: 3001 }]
+    - to:
+        - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: data } }
+          podSelector: { matchLabels: { app.kubernetes.io/name: s3 } }
+      ports: [{ port: 8333 }]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: { name: s3-from-agents, namespace: data }
+spec:
+  podSelector: { matchLabels: { app.kubernetes.io/name: s3 } }
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: agents } }
+          podSelector: { matchLabels: { app.kubernetes.io/name: herdr } }
+      ports: [{ port: 8333 }]
