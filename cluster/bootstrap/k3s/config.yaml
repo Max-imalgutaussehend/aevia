@@ -1,0 +1,12 @@
+# /etc/rancher/k3s/config.yaml on aevia-control-01 (ADR-0030). Applied 2026-10-20.
+# cluster/service CIDRs avoid 10.42.0.0/16, which the Hetzner private network (10.42.1.0/24) uses.
+# tls-san must contain the private IP: Cilium (kube-proxy replacement) reaches the API at 10.42.1.1:6443.
+flannel-backend: none
+disable-network-policy: true
+disable-kube-proxy: true
+disable: [traefik, servicelb]
+cluster-cidr: 10.244.0.0/16
+service-cidr: 10.96.0.0/16
+secrets-encryption: true
+write-kubeconfig-mode: "0600"
+tls-san: [2.31.1.35, 10.42.1.1]
