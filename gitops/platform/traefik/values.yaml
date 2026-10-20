@@ -2,7 +2,7 @@
 # managed one. Service is named `ingress` because infra/tofu/modules/cloudflare forwards there.
 fullnameOverride: ingress
 deployment: { replicas: 1 }
-service: { type: ClusterIP }
+service: { spec: { type: ClusterIP } }
 ports:
   web: { port: 8000, exposedPort: 80 }
   websecure: { expose: { default: false } }
