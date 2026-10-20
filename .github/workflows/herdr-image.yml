@@ -1,0 +1,28 @@
+# Builds and pushes the Herdr workspace image to GHCR. Publishing an image is not deploying one:
+# the profile in agents/herdr/profiles pins the digest by hand and Argo CD syncs it.
+name: herdr-image
+
+on:
+  push:
+    branches: [r2, main]
+    paths: ["agents/herdr/image/**", ".github/workflows/herdr-image.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with: { registry: ghcr.io, username: "${{ github.actor }}", password: "${{ secrets.GITHUB_TOKEN }}" }
+      - uses: docker/build-push-action@v6
+        id: push
+        with:
+          context: agents/herdr/image
+          push: true
+          tags: ghcr.io/max-imalgutaussehend/aevia-herdr:${{ github.sha }}
+      - run: echo "digest ${{ steps.push.outputs.digest }}" >> "$GITHUB_STEP_SUMMARY"
