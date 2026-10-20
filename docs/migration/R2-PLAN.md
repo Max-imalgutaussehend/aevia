@@ -25,7 +25,7 @@ Each phase needs: ADR, test, rollback. Status: `todo` unless noted.
 | 21 | CI/CD (k8s validation, isolation, restore and portfolio-image workflows done; portfolio digest pin open until the workflow runs) | GitHub |
 | 22 | Herdr runtime (agents zone scaffold done; no profile yet) | — |
 | 23 | Dedicated agent node (taint `workload=agent`) (tofu `nodes` supports it; apply open) | Hetzner |
-| 24 | AI gateway (FreeLLMAPI manifest, seed mechanism and runbook done; key adoption and egress allow-list by provider host open) | provider keys |
+| 24 | AI gateway (FreeLLMAPI v0.13.6, adopted 2026-10-20: DB and ENCRYPTION_KEY from the operator's instance, daily encrypted offsite copy; egress stays 443-to-public) | provider keys |
 | 25 | Observability (Prometheus, Grafana, Loki, Tempo, OTel collector values + Argo apps done; Hubble was already on in the Cilium values) | — |
 | 26 | Security hardening (quotas, PSS, CI policy check done) | — |
 | 27 | Backup (pg-backup CronJob + rclone-crypt upload to Hetzner bucket `aevia-backups`, verified 2026-10-20) | — |
@@ -40,3 +40,5 @@ Phases 29-30 are not started; 24 is blocked on operator input. `longevity` is he
 **Live on R2 (2026-10-20):** phases 07-10, 12-20 (except portfolio/longevity), 21, 24-27; n8n restored from R1; backup job verified. Open: 11 and 29 (Cloudflare credentials), 23 (agent node, no workload yet), 28 full destroy drill, 30 (R1 has non-catalog services).
 
 **Cutover and R1 decommission (2026-10-20):** tunnel, DNS and portfolio (digest pinned, `www` alias) now run on R2. R1 server `life-server` was deleted after a Hetzner snapshot (id 445944792, delete when no longer needed) and an age-encrypted archive in `aevia-backups/r1-final/` (Postgres dumps of both instances, selected volumes, /opt and /home/deploy). Not migrated by decision: longevity, daviddiehm, claude-rc-container and the removed agent stack. Still open: agent node (23), Authentik forward-auth wiring, full destroy/rebuild drill (28), FreeLLMAPI key adoption (24). Uptime Kuma data was restored from R1, but its monitors still point at R1 container names and need new targets.
+
+**AI gateway adoption (2026-10-20):** the instance ran from a source checkout (v0.13.6, same as the pinned image digest). Data directory and key were age-encrypted to the cluster recipient on that machine, handed over through a temporary branch (deleted), loaded into the `freellmapi-data` volume as a single checkpointed `freeapi.db`; the key replaced the SOPS secret `freellmapi-env`. Ten providers are configured (cloudflare, google, groq, llm7, mistral, nara, nvidia, ollama, xkiro, zhipu). `freellmapi-backup` copies the volume to `aevia-backups/freellmapi` (rclone crypt) at 02:37.

@@ -21,4 +21,6 @@ Verify: dashboard login works, Keys page lists your providers, `curl -H "Authori
 
 Notes: pin is the registry digest of `:latest` on 2026-10-09. If your instance runs an older version, pin its digest instead
 (`docker image inspect ghcr.io/tashfeenahmed/freellmapi --format '{{index .RepoDigests 0}}'`); a newer app can migrate an older DB, not the reverse.
-Back up the PVC (`freellmapi-data`) separately: `pg-backup` only covers Postgres.
+The PVC is backed up by the `freellmapi-backup` CronJob (02:37, rclone crypt to `aevia-backups/freellmapi`). The ENCRYPTION_KEY is not in that backup; it lives in the SOPS secret `freellmapi-env`.
+
+Adoption as actually done (source-checkout instance, DB > 1 MiB): age-encrypt the data dir and the key to the cluster recipient, push both files to a temporary branch, decrypt locally, scale the deployment to 0 with Argo auto-sync paused, copy a checkpointed `freeapi.db` into the volume with a helper pod, scale up, resume sync, delete the branch.
