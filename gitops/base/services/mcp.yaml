@@ -29,7 +29,7 @@ spec:
         fsGroup: 10001
       containers:
       - name: mcp
-        image: ghcr.io/max-imalgutaussehend/aevia-mcp@sha256:9dd828bf12fcbf4ca95f9a584ae6ed6052f845bddcd02931b994614a6687ee86
+        image: ghcr.io/max-imalgutaussehend/aevia-mcp@sha256:42fa8703107c3270507e8b8f0fbe5f33688d70df64d58e7a0d03cec0dbcd5e46
         ports:
         - name: http
           containerPort: 8000
@@ -81,6 +81,8 @@ spec:
         - secretRef:
             name: mcp-vault-git
             optional: true
+        - secretRef:
+            name: mcp-internal
         readinessProbe:
           httpGet: &id002
             path: /healthz

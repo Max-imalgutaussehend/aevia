@@ -97,7 +97,7 @@ services:
     scratch_paths: [/config, /data]
 
   - name: mcp
-    image: ghcr.io/max-imalgutaussehend/aevia-mcp@sha256:9dd828bf12fcbf4ca95f9a584ae6ed6052f845bddcd02931b994614a6687ee86
+    image: ghcr.io/max-imalgutaussehend/aevia-mcp@sha256:42fa8703107c3270507e8b8f0fbe5f33688d70df64d58e7a0d03cec0dbcd5e46
     type: application
     description: "Aevia MCP server: platform, metrics, logs, vault, AI gateway and push (repo aevia-mcp); private, OAuth via Authentik"
     port: 8000
@@ -117,17 +117,18 @@ services:
       - { name: aevia-mcp-ntfy, optional: true } # NTFY_USER / NTFY_PASSWORD of the write-only ntfy user (SOPS)
       - { name: aevia-mcp-gateway, optional: true } # GATEWAY_API_KEY = FreeLLMAPI unified key; created by hand, never committed
       - { name: mcp-vault-git, optional: true } # VAULT_GIT_URL with a read token; created by hand, never committed
+      - mcp-internal # INTERNAL_TOKEN: static bearer for in-cluster callers (Jarvis), refused when the request came through Cloudflare (SOPS)
     env: { PUBLIC_URL: "https://mcp.maxrommel.de", OIDC_CLIENT_ID: aevia-mcp, OIDC_ISSUER: "https://authentik.maxrommel.de/application/o/aevia-mcp/", EXCLUDE_DIRS: "Privat", HOME: /home/mcp }
 
   - name: jarvis
-    image: ghcr.io/max-imalgutaussehend/jarvis-brain@sha256:0200b221d82c362fe4ccf0d4254c37ba4c6382b5966e8ad30d1812574d0c07ca
+    image: ghcr.io/max-imalgutaussehend/jarvis-brain@sha256:103a66ea9320d1f86305861d71df995a9782f60f887b1c32aef0f11a9c52e785
     type: application
     namespace: agents # Claude Code runs here with edit rights: same isolation as the Herdr workspace (gateway only, no databases)
     description: "Jarvis brain: UI, sessions and Claude Code for the voice assistant (repo jarvis, branch spike/deployment); the voice node runs on the laptop"
     port: 8787
     exposure: private
     gate: access # Cloudflare Access with Authentik; the brain verifies the Access JWT itself (JARVIS_CF_TEAM / JARVIS_CF_AUD)
-    needs: [freellmapi] # Claude Code talks to the AI gateway (Anthropic wire format)
+    needs: [freellmapi, mcp] # Claude Code talks to the AI gateway (Anthropic wire format) and to the Aevia MCP server
     internet: true # Access certificate download, git over HTTPS
     persistence: 10Gi
     data_path: /data
@@ -135,8 +136,10 @@ services:
     resources: { cpu: 200m, memory: 768Mi }
     secret_env:
       - herdr-gateway # ANTHROPIC_AUTH_TOKEN = FreeLLMAPI unified key (same secret as the Herdr workspace, same namespace)
+      - jarvis-mcp # AEVIA_MCP_TOKEN, the shared internal token of the MCP server (SOPS)
     env:
       ANTHROPIC_BASE_URL: "http://freellmapi.platform.svc.cluster.local:3001"
+      AEVIA_MCP_URL: "http://mcp.apps.svc.cluster.local:8000/mcp"
       HOME: /data/home # Claude's session files must survive restarts for --resume
       JARVIS_PUBLIC_URL: "https://jarvis.maxrommel.de" # filled into the laptop setup script
       JARVIS_PORT: "8787" # explicit: Kubernetes injects JARVIS_PORT=tcp://... for the service named jarvis and would override the image default

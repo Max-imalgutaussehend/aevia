@@ -106,6 +106,15 @@ def write_mcp_ntfy():
         return
     write("aevia-mcp-ntfy", "apps", {"NTFY_USER": "aevia-mcp", "NTFY_PASSWORD": rnd(32), "NTFY_TOPIC": "aevia"})
 
+def write_jarvis_mcp():
+    """One shared token: the MCP server accepts it from in-cluster callers only (INTERNAL_TOKEN in apps), Jarvis presents it (AEVIA_MCP_TOKEN in agents)."""
+    if (OUT / "mcp-internal.enc.yaml").exists():
+        print("keep    mcp-internal.enc.yaml")
+        return
+    tok = rnd(48)
+    write("mcp-internal", "apps", {"INTERNAL_TOKEN": tok})
+    write("jarvis-mcp", "agents", {"AEVIA_MCP_TOKEN": tok})
+
 def write_herdr_ntfy():
     """Write-only ntfy user `herdr`: the handover runner tells the operator when an agent has finished."""
     if (OUT / "herdr-ntfy.enc.yaml").exists():
@@ -141,6 +150,7 @@ def main():
     write_forgejo()
     write_mcp()
     write_mcp_ntfy()
+    write_jarvis_mcp()
     write_herdr_ntfy()
     write("grafana-admin", "observability", {"admin-user": "admin", "admin-password": grafana})
     if not GEN.exists():

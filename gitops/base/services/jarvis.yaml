@@ -28,7 +28,7 @@ spec:
         fsGroup: 1000
       containers:
       - name: jarvis
-        image: ghcr.io/max-imalgutaussehend/jarvis-brain@sha256:0200b221d82c362fe4ccf0d4254c37ba4c6382b5966e8ad30d1812574d0c07ca
+        image: ghcr.io/max-imalgutaussehend/jarvis-brain@sha256:103a66ea9320d1f86305861d71df995a9782f60f887b1c32aef0f11a9c52e785
         ports:
         - name: http
           containerPort: 8787
@@ -53,6 +53,8 @@ spec:
         env:
         - name: ANTHROPIC_BASE_URL
           value: http://freellmapi.platform.svc.cluster.local:3001
+        - name: AEVIA_MCP_URL
+          value: http://mcp.apps.svc.cluster.local:8000/mcp
         - name: HOME
           value: /data/home
         - name: JARVIS_PUBLIC_URL
@@ -72,6 +74,8 @@ spec:
         envFrom:
         - secretRef:
             name: herdr-gateway
+        - secretRef:
+            name: jarvis-mcp
       volumes:
       - name: tmp
         emptyDir: {}
@@ -188,6 +192,15 @@ spec:
           app.kubernetes.io/name: freellmapi
     ports:
     - port: 3001
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: apps
+      podSelector:
+        matchLabels:
+          app.kubernetes.io/name: mcp
+    ports:
+    - port: 8000
   - to:
     - ipBlock:
         cidr: 0.0.0.0/0
