@@ -20,6 +20,19 @@ Three methods, applied together.
    as well, so those families existed twice. Dropped: `apiserver_*`, `etcd_*`, `scheduler_*` from the kubelet job, and seven large bucket families no dashboard or rule reads from the
    apiserver job. Kept: `apiserver_request_duration_seconds_bucket` and `apiserver_request_sli_duration_seconds_bucket` (kube-prometheus dashboards and error-budget rules). Series scraped from the two jobs: 88 700 to 34 000.
 
+## Result (measured on the node after the changes and after Prometheus compacted its head)
+| | before | after |
+|---|---|---|
+| `MemAvailable` | 1.9 GB | 2.9 GB |
+| resident program memory (`AnonPages`) | 5.16 GB | 4.10 GB |
+| container anonymous memory | 3.7 GB | 2.9 GB |
+| Prometheus head series / memory | 102 600 / 592 MiB | 43 100 / 401 MiB |
+| Argo CD application controller | 409 MiB | 244 MiB |
+| k3s resident | 1185 MiB | 919 MiB (bounded) |
+| pods | 42 | 39 |
+| root disk | 75 % | 45 % |
+`kubectl top node` still shows about 70 %: it counts file cache, which grows into the freed memory and is dropped on demand. Judge by `MemAvailable`.
+
 ## Tried and rejected
 - `MALLOC_ARENA_MAX=2` for the Authentik worker (glibc arenas): 291 to 313 MiB, no effect.
 - zram swap: the Python and Node memory compresses 3.2 to 3.7 times, but pods may not swap by default; it needs a kubelet setting and a k3s restart for a gain the three methods already give. Revisit if memory gets tight again.
