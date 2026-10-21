@@ -29,7 +29,7 @@ spec:
         fsGroup: 10001
       containers:
       - name: mcp
-        image: ghcr.io/max-imalgutaussehend/aevia-mcp@sha256:42fa8703107c3270507e8b8f0fbe5f33688d70df64d58e7a0d03cec0dbcd5e46
+        image: ghcr.io/max-imalgutaussehend/aevia-mcp@sha256:af4b87db11014cee3a5e3e253454071bd1987e3a602058617b45da8473550fe0
         ports:
         - name: http
           containerPort: 8000

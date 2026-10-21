@@ -97,9 +97,9 @@ services:
     scratch_paths: [/config, /data]
 
   - name: mcp
-    image: ghcr.io/max-imalgutaussehend/aevia-mcp@sha256:42fa8703107c3270507e8b8f0fbe5f33688d70df64d58e7a0d03cec0dbcd5e46
+    image: ghcr.io/max-imalgutaussehend/aevia-mcp@sha256:af4b87db11014cee3a5e3e253454071bd1987e3a602058617b45da8473550fe0
     type: application
-    description: "Aevia MCP server: platform, metrics, logs, vault, AI gateway and push (repo aevia-mcp); private, OAuth via Authentik"
+    description: "Aevia MCP server: platform, metrics, logs, vault (read and write), AI gateway and push (repo aevia-mcp); private, OAuth via Authentik"
     port: 8000
     exposure: private
     gate: access
@@ -116,7 +116,7 @@ services:
       - mcp-obsidian-env # OIDC client secret (SOPS)
       - { name: aevia-mcp-ntfy, optional: true } # NTFY_USER / NTFY_PASSWORD of the write-only ntfy user (SOPS)
       - { name: aevia-mcp-gateway, optional: true } # GATEWAY_API_KEY = FreeLLMAPI unified key; created by hand, never committed
-      - { name: mcp-vault-git, optional: true } # VAULT_GIT_URL with a read token; created by hand, never committed
+      - { name: mcp-vault-git, optional: true } # VAULT_GIT_URL with a Forgejo token that can write the vault (write:repository); created by hand, never committed
       - mcp-internal # INTERNAL_TOKEN: static bearer for in-cluster callers (Jarvis), refused when the request came through Cloudflare (SOPS)
     env: { PUBLIC_URL: "https://mcp.maxrommel.de", OIDC_CLIENT_ID: aevia-mcp, OIDC_ISSUER: "https://authentik.maxrommel.de/application/o/aevia-mcp/", EXCLUDE_DIRS: "Privat", HOME: /home/mcp }
 
