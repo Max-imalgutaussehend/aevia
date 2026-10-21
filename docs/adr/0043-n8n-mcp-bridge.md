@@ -15,6 +15,12 @@ and a way for Max's clients (claude.ai, Jarvis) to reach it: n8n itself sits beh
 - Network: the MCP pod may reach n8n on 5678 (policy `n8n-from-mcp`); nothing else in the namespace may.
 - Built-in guardrails stay: n8n validates every workflow (`validate_workflow` before `create_workflow_from_code`), tools that run workflows only see workflows that were exposed to MCP, and tokens act as the owner.
 
+## Calling the AI gateway from a workflow
+Verified the same day with a four-node workflow (manual trigger, prompt, HTTP request to the gateway, answer): n8n may reach `freellmapi:3001` (egress added to the catalog entry; the gateway already admitted n8n),
+the gateway needs its key, and credentials cannot be created through the MCP tools. `scripts/n8n-gateway-credential.py` creates the credential "Aevia AI Gateway" (Header Auth) the way n8n stores it
+(AES like CryptoJS, key from `N8N_ENCRYPTION_KEY`), shared with the owner's project; the key comes from the secret `herdr-gateway` and is not printed. A workflow attaches it with the
+`n8n_update_workflow` operation `setNodeCredential`. The MCP server's instructions carry these addresses so a client without any context (claude.ai) knows where n8n and the gateway are.
+
 ## Consequences
 - Whoever can call this MCP server (Max through claude.ai, Jarvis) can create, change, publish and run n8n workflows as the owner. Archiving is a tool; permanently deleting is not.
 - Verified end to end on 2026-10-21: validate, create, read and archive of a two-node test workflow through the bridge (the archived workflow is still listed under archived workflows in n8n).
