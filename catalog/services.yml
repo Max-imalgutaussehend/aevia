@@ -194,7 +194,7 @@ services:
   - name: grafana
     type: platform
     namespace: observability
-    description: "Grafana dashboards over Prometheus, Loki, Tempo"
+    description: "Grafana dashboards over Prometheus and Loki"
     port: 3000
     exposure: private
     gate: access

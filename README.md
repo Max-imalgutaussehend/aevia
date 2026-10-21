@@ -35,11 +35,11 @@ flowchart LR
     traefik --> apps[apps: n8n, websites, MCP server]
     traefik --> plat[platform: Authentik, Forgejo, ntfy, status, AI gateway]
     traefik --> ops[operators: Argo CD, Grafana, Prometheus]
-    apps --> data[(data: PostgreSQL, Redis, NATS, S3)]
+    apps --> data[(data: PostgreSQL, Redis, S3)]
     plat --> data
     agents[agents: Herdr workspace] -->|AI gateway + one bucket| plat
     argo[Argo CD + ksops] --> apps & plat & data
-    obs[Loki, Tempo, OTel] -.- ops
+    obs[Loki, OTel] -.- ops
   end
   cf -->|outbound tunnel| cfd
   data -->|nightly, encrypted| bucket[(Cloudflare R2, free tier)]
@@ -54,10 +54,10 @@ More detail with the reasoning behind each piece: [aevia.maxrommel.de](https://a
 | Infrastructure | OpenTofu (Hetzner server, firewall; Cloudflare DNS, tunnel, Access), k3s, Cilium |
 | Delivery | Argo CD, manifests generated from one service catalog (`catalog/services.yml`), SOPS + age |
 | Edge and sign-in | Cloudflare Tunnel and Access, Authentik (OIDC for Cloudflare, Grafana, Argo CD, Forgejo, the MCP server) |
-| Data | PostgreSQL, Redis, NATS, SeaweedFS (S3) |
+| Data | PostgreSQL, Redis, SeaweedFS (S3) |
 | Applications | n8n, Uptime Kuma, ntfy, static websites (each in its own repo), Forgejo (git), an Obsidian MCP server for claude.ai |
 | AI | FreeLLMAPI gateway (OpenAI and Anthropic wire formats), Herdr agent workspace |
-| Observability | Prometheus, Grafana, Loki, Tempo, OpenTelemetry collector |
+| Observability | Prometheus, Grafana, Loki, OpenTelemetry collector |
 | Backup | nightly PostgreSQL dump and gateway volume, encrypted before upload to Cloudflare R2 (stays inside the free tier, guarded) |
 
 ## Repository layout

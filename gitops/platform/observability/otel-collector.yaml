@@ -1,4 +1,4 @@
-# OTLP in, traces to Tempo, logs to Loki (phase 25). Apps need an explicit egress rule to send here.
+# OTLP in, logs to Loki (phase 25). No traces backend: Tempo was removed (ADR 0040). Apps need an explicit egress rule to send here.
 fullnameOverride: otel
 mode: deployment
 image: { repository: otel/opentelemetry-collector-contrib }
@@ -10,11 +10,10 @@ config:
     memory_limiter: { check_interval: 5s, limit_mib: 200 }
     batch: {}
   exporters:
-    otlp/tempo: { endpoint: tempo.observability.svc.cluster.local:4317, tls: { insecure: true } }
     otlphttp/loki: { endpoint: http://loki.observability.svc.cluster.local:3100/otlp }
   service:
     pipelines:
-      traces: { receivers: [otlp], processors: [memory_limiter, batch], exporters: [otlp/tempo] }
+      traces: null
       logs: { receivers: [otlp], processors: [memory_limiter, batch], exporters: [otlphttp/loki] }
       metrics: null
 ports:

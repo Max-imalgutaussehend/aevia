@@ -25,7 +25,6 @@ chart() { helm template "$1" "$2" -n "$3" --version "$4" -f "$5" 2>/dev/null | k
 chart authentik goauthentik/authentik platform 2026.8.3 gitops/platform/authentik/values.yaml
 chart kps prometheus-community/kube-prometheus-stack observability 92.2.0 gitops/platform/observability/kube-prometheus-stack.yaml
 chart loki grafana/loki observability 7.3.0 gitops/platform/observability/loki.yaml
-chart tempo grafana/tempo observability 1.24.4 gitops/platform/observability/tempo.yaml
 chart otel open-telemetry/opentelemetry-collector observability 0.175.1 gitops/platform/observability/otel-collector.yaml
 helm template argocd argo/argo-cd --version 10.10.1 -n argocd -f gitops/platform/argocd-values.yaml \
   | kubeconform -strict -ignore-missing-schemas -summary
