@@ -237,6 +237,15 @@ spec:
     ports:
     - port: 6379
   - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: platform
+      podSelector:
+        matchLabels:
+          app.kubernetes.io/name: freellmapi
+    ports:
+    - port: 3001
+  - to:
     - ipBlock:
         cidr: 0.0.0.0/0
         except:

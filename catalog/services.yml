@@ -38,7 +38,7 @@ services:
     exposure: private
     auth: authentik
     healthcheck: /healthz
-    needs: [postgres, redis]
+    needs: [postgres, redis, freellmapi] # freellmapi: workflows call the AI gateway (OpenAI wire format on :3001)
     persistence: 5Gi # TODO size
     resources: { cpu: 250m, memory: 768Mi } # R1 limit; NODE_OPTIONS heap is 640, so 512Mi OOM-kills (found by tests/smoke)
     uid: 1000
