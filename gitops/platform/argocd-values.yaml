@@ -31,6 +31,15 @@ server:
     type: ClusterIP
 dex:
   enabled: false
+# No ApplicationSets and no notification subscriptions exist (ADR 0042): both controllers idled at about 45 MiB together.
+applicationSet:
+  replicas: 0 # this chart version has no enabled switch
+notifications:
+  enabled: false
+controller:
+  # Measured: with a soft limit just above the live heap the controller stays at 240 MiB instead of 409 MiB, without extra CPU.
+  env:
+    - { name: GOMEMLIMIT, value: 260MiB }
 
 # --- ksops (ADR-0032): decrypt SOPS manifests inside repo-server ---------------------
 # The age private key lives only in Secret `sops-age` (argocd ns), created by hand in

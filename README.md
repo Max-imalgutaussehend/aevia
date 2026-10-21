@@ -18,7 +18,7 @@ Public sites built on it: [aevia.maxrommel.de](https://aevia.maxrommel.de) (what
 
 1. **Git is the only source of truth.** A push to `main` is the deploy. The cluster pulls; nothing pushes into it.
 2. **Deny first.** Every namespace starts with a policy that blocks all traffic; each allowed path is written down and tested.
-3. **Agents stay in their lane.** Code that models write runs in the `agents` namespace. It reaches the AI gateway and one storage bucket, and not the databases. CI proves it on a throwaway cluster.
+3. **Agents stay in their lane.** Code that models write runs in the `agents` namespace. It reaches the AI gateway, and not the databases. CI proves it on a throwaway cluster.
 4. **Secrets are encrypted in Git.** SOPS and age; the cluster holds its own key, the operator holds a copy offline.
 5. **One login.** Cloudflare Access with Authentik in front of every private tool.
 6. **Restores are rehearsed.** A database dump is destroyed and restored in CI, not only when something breaks.
@@ -35,9 +35,9 @@ flowchart LR
     traefik --> apps[apps: n8n, websites, MCP server]
     traefik --> plat[platform: Authentik, Forgejo, ntfy, status, AI gateway]
     traefik --> ops[operators: Argo CD, Grafana, Prometheus]
-    apps --> data[(data: PostgreSQL, Redis, S3)]
+    apps --> data[(data: PostgreSQL, Redis)]
     plat --> data
-    agents[agents: Herdr workspace] -->|AI gateway + one bucket| plat
+    agents[agents: Herdr workspace] -->|AI gateway| plat
     argo[Argo CD + ksops] --> apps & plat & data
     obs[Loki, OTel] -.- ops
   end
@@ -54,7 +54,7 @@ More detail with the reasoning behind each piece: [aevia.maxrommel.de](https://a
 | Infrastructure | OpenTofu (Hetzner server, firewall; Cloudflare DNS, tunnel, Access), k3s, Cilium |
 | Delivery | Argo CD, manifests generated from one service catalog (`catalog/services.yml`), SOPS + age |
 | Edge and sign-in | Cloudflare Tunnel and Access, Authentik (OIDC for Cloudflare, Grafana, Argo CD, Forgejo, the MCP server) |
-| Data | PostgreSQL, Redis, SeaweedFS (S3) |
+| Data | PostgreSQL, Redis |
 | Applications | n8n, Uptime Kuma, ntfy, static websites (each in its own repo), Forgejo (git), an MCP server for claude.ai, the Jarvis voice assistant (brain) |
 | AI | FreeLLMAPI gateway (OpenAI and Anthropic wire formats), Herdr agent workspace |
 | Observability | Prometheus, Grafana, Loki, OpenTelemetry collector |

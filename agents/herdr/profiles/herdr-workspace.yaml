@@ -30,11 +30,8 @@ spec:
             # FreeLLMAPI speaks both wire formats: OpenAI at /v1, Anthropic Messages at /v1/messages (Claude Code appends the path).
             - { name: ANTHROPIC_BASE_URL, value: "http://freellmapi.platform.svc.cluster.local:3001" }
             - { name: OPENAI_BASE_URL, value: "http://freellmapi.platform.svc.cluster.local:3001/v1" }
-            - { name: S3_ENDPOINT, value: "http://s3.data.svc.cluster.local:8333" }
-            - { name: S3_BUCKET, value: agent-workspace }
             - { name: NTFY_URL, value: "http://ntfy.platform.svc.cluster.local:80" }
           envFrom:
-            - { secretRef: { name: herdr-s3 } } # AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY of the `agents` S3 identity
             - { secretRef: { name: herdr-gateway, optional: true } } # ANTHROPIC_AUTH_TOKEN / OPENAI_API_KEY = FreeLLMAPI unified key (SOPS)
             - { secretRef: { name: handover-api, optional: true } } # HANDOVER_API_TOKEN: switches the handover API on (port 8099), shared with Jarvis (SOPS)
             - { secretRef: { name: herdr-ntfy, optional: true } } # NTFY_USER / NTFY_PASSWORD / NTFY_TOPIC: write-only user, "handover finished" pushes (SOPS)
@@ -83,10 +80,10 @@ spec:
     - to: [{ podSelector: { matchLabels: { app.kubernetes.io/name: herdr } } }]
       ports: [{ port: 8099 }]
 ---
-# Agents may call the AI gateway and the agent-workspace bucket, nothing else inside the cluster.
+# Agents may call the AI gateway and ntfy, nothing else inside the cluster (the in-cluster S3 was removed: ADR 0042).
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
-metadata: { name: herdr-gateway-and-s3, namespace: agents }
+metadata: { name: herdr-gateway-and-ntfy, namespace: agents }
 spec:
   podSelector: { matchLabels: { app.kubernetes.io/name: herdr } }
   policyTypes: [Egress]
@@ -95,10 +92,6 @@ spec:
         - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: platform } }
           podSelector: { matchLabels: { app.kubernetes.io/name: freellmapi } }
       ports: [{ port: 3001 }]
-    - to:
-        - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: data } }
-          podSelector: { matchLabels: { app.kubernetes.io/name: s3 } }
-      ports: [{ port: 8333 }]
     - to:
         - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: platform } }
           podSelector: { matchLabels: { app.kubernetes.io/name: ntfy } }
@@ -115,15 +108,3 @@ spec:
         - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: agents } }
           podSelector: { matchExpressions: [{ key: app.kubernetes.io/name, operator: In, values: [herdr, jarvis] }] } # Jarvis pushes "background task finished"
       ports: [{ port: 80 }]
----
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata: { name: s3-from-agents, namespace: data }
-spec:
-  podSelector: { matchLabels: { app.kubernetes.io/name: s3 } }
-  policyTypes: [Ingress]
-  ingress:
-    - from:
-        - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: agents } }
-          podSelector: { matchLabels: { app.kubernetes.io/name: herdr } }
-      ports: [{ port: 8333 }]

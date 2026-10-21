@@ -66,17 +66,6 @@ def write_oidc():
     write("grafana-oauth", "observability", {"GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET": sec["grafana"]})
     write("argocd-oidc", "argocd", {"clientSecret": sec["argocd"]}, labels={"app.kubernetes.io/part-of": "argocd"})
 
-def write_herdr_s3():
-    """Credentials of the S3 identity `agents` (bucket agent-workspace only), taken from s3-auth."""
-    if (OUT / "herdr-s3.enc.yaml").exists():
-        print("keep    herdr-s3.enc.yaml")
-        return
-    env = {**os.environ, "SOPS_AGE_KEY_FILE": str(Path.home() / ".config/sops/age/keys.txt")}
-    doc = yaml.safe_load(subprocess.run(["sops", "-d", str(OUT / "s3-auth.enc.yaml")], capture_output=True, text=True, check=True, env=env).stdout)
-    ident = next(i for i in json.loads(doc["stringData"]["s3.json"])["identities"] if i["name"] == "agents")
-    cred = ident["credentials"][0]
-    write("herdr-s3", "agents", {"AWS_ACCESS_KEY_ID": cred["accessKey"], "AWS_SECRET_ACCESS_KEY": cred["secretKey"]})
-
 def write_forgejo():
     """Forgejo: stable SECRET_KEY plus the OIDC client secret shared with the Authentik blueprint (OIDC_FORGEJO_SECRET)."""
     if (OUT / "forgejo-env.enc.yaml").exists():
@@ -134,14 +123,10 @@ def main():
     n8n_key = "" if (OUT / "n8n-env.enc.yaml").exists() else read_env(REPO / ".env", "N8N_ENCRYPTION_KEY")
     pg, n8n_pw, ak_pw, redis = rnd(), rnd(), rnd(), rnd()
     ak_boot, ak_token, grafana = rnd(24), rnd(40), rnd(24)
-    s3_ak, s3_sk = rnd(20), rnd(40)
     write("postgres-auth", "data", {"POSTGRES_USER": "postgres", "POSTGRES_PASSWORD": pg,
                                     "POSTGRES_N8N_PASSWORD": n8n_pw, "POSTGRES_AUTHENTIK_PASSWORD": ak_pw})
     write("pg-backup-auth", "data", {"PGUSER": "postgres", "PGPASSWORD": pg})
     write("redis-auth", "data", {"REDIS_PASSWORD": redis})
-    write("s3-auth", "data", {"s3.json": json.dumps({"identities": [{"name": "admin",
-          "credentials": [{"accessKey": s3_ak, "secretKey": s3_sk}],
-          "actions": ["Admin", "Read", "Write", "List", "Tagging"]}]})})
     write("n8n-env", "apps", {"N8N_ENCRYPTION_KEY": n8n_key, "DB_POSTGRESDB_PASSWORD": n8n_pw,
                               "QUEUE_BULL_REDIS_PASSWORD": redis})
     write("authentik-env", "platform", {"AUTHENTIK_SECRET_KEY": rnd(50), "AUTHENTIK_POSTGRESQL__PASSWORD": ak_pw,
@@ -153,7 +138,6 @@ def main():
     if os.environ.get("TUNNEL_TOKEN"):  # from: GET /accounts/<id>/cfd_tunnel/<tunnel_id>/token
         write("cloudflared-token", "edge", {"TUNNEL_TOKEN": os.environ["TUNNEL_TOKEN"]})
     write_oidc()
-    write_herdr_s3()
     write_forgejo()
     write_mcp()
     write_mcp_ntfy()
@@ -164,8 +148,7 @@ def main():
     if not GEN.exists():
         GEN.parent.mkdir(parents=True, exist_ok=True)
         GEN.touch(mode=0o600)
-        GEN.write_text(f"AUTHENTIK_BOOTSTRAP_PASSWORD={ak_boot}\nGRAFANA_ADMIN_PASSWORD={grafana}\n"
-                       f"S3_ACCESS_KEY={s3_ak}\nS3_SECRET_KEY={s3_sk}\n")
+        GEN.write_text(f"AUTHENTIK_BOOTSTRAP_PASSWORD={ak_boot}\nGRAFANA_ADMIN_PASSWORD={grafana}\n")
         print(f"login values saved to {GEN} (600)")
 
 if __name__ == "__main__":

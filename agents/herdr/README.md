@@ -4,7 +4,7 @@ Agents are plain Kubernetes workloads in namespace `agents` (ADR-0028, ADR-0036)
 policy) is `gitops/base/agents/agents.yaml`; quota and PSS `restricted` come from `gitops/base/namespaces`.
 
 - `image/`: Dockerfile of the Herdr workspace (built by `.github/workflows/herdr-image.yml`, pinned by digest below)
-- `profiles/herdr-workspace.yaml`: StatefulSet `herdr`, network policies for the AI gateway and the `agent-workspace` bucket
+- `profiles/herdr-workspace.yaml`: StatefulSet `herdr`, network policies for the AI gateway and ntfy
 - `enable/agent-profiles-app.yaml`: Argo CD app that deploys `profiles/`; not active yet
 
 ## Enable (needs the agent node)

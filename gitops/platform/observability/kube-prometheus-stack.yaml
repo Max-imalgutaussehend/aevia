@@ -8,12 +8,24 @@ prometheus:
   prometheusSpec:
     retention: 7d
     resources: { requests: { cpu: 100m, memory: 512Mi }, limits: { memory: 1Gi } }
+    # Go collects garbage only when the heap has doubled; a soft limit keeps it near the live data (ADR 0042). Not a hard limit: above it the GC just runs more often.
+    containers:
+      - name: prometheus
+        env: [{ name: GOMEMLIMIT, value: 450MiB }]
     storageSpec:
       volumeClaimTemplate: { spec: { accessModes: [ReadWriteOnce], resources: { requests: { storage: 10Gi } } } }
 grafana:
   admin: { existingSecret: grafana-admin, userKey: admin-user, passwordKey: admin-password }
   resources: { requests: { cpu: 50m, memory: 128Mi }, limits: { memory: 384Mi } }
   persistence: { enabled: true, size: 2Gi }
+  # One static datasource instead of the datasource sidecar (a Python process of 73 MiB that only watched ConfigMaps). The Alertmanager entry went with it: Alertmanager is off.
+  # Dashboards still come through the dashboard sidecar (24 ConfigMaps).
+  sidecar: { datasources: { enabled: false } }
+  datasources:
+    datasources.yaml:
+      apiVersion: 1
+      datasources:
+        - { name: Prometheus, type: prometheus, uid: prometheus, url: "http://kps-prometheus.observability:9090/", access: proxy, isDefault: true, jsonData: { httpMethod: POST, timeInterval: 30s } }
   envFromSecret: grafana-oauth # GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET (SOPS)
   grafana.ini:
     server: { domain: grafana.maxrommel.de, root_url: "https://grafana.maxrommel.de" }
@@ -31,6 +43,27 @@ grafana:
       role_attribute_path: "contains(groups[*], 'operator') && 'Admin' || 'Viewer'"
       allow_assign_grafana_admin: true
       use_pkce: true
+# Series diet (ADR 0042): 87 000 of 101 000 series came from the apiserver and kubelet jobs, 58 800 of them histogram buckets. k3s serves the apiserver registry
+# through the kubelet endpoint as well, so those families existed twice. The alert rules and dashboards of kube-prometheus keep what they read
+# (apiserver_request_duration_seconds_bucket, apiserver_request_sli_duration_seconds_bucket); the chart's own default drop rule stays in place.
+kubeApiServer:
+  serviceMonitor:
+    metricRelabelings:
+      - action: drop
+        sourceLabels: [__name__, le]
+        regex: (etcd_request|apiserver_request_slo|apiserver_request_sli|apiserver_request)_duration_seconds_bucket;(0\.15|0\.2|0\.3|0\.35|0\.4|0\.45|0\.6|0\.7|0\.8|0\.9|1\.25|1\.5|1\.75|2|3|3\.5|4|4\.5|6|7|8|9|15|20|40|45|50)(\.0)?
+      - action: drop # k3s uses sqlite (kine), the etcd histogram describes nothing; the others are large and read by no dashboard or rule
+        sourceLabels: [__name__]
+        regex: (etcd_request_duration_seconds_bucket|apiserver_request_body_size_bytes_bucket|apiserver_watch_list_duration_seconds_bucket|apiserver_response_sizes_bucket|apiserver_watch_cache_read_wait_seconds_bucket|apiserver_watch_events_sizes_bucket|scheduler_plugin_execution_duration_seconds_bucket)
+kubelet:
+  serviceMonitor:
+    metricRelabelings:
+      - action: drop
+        sourceLabels: [__name__, le]
+        regex: (csi_operations|storage_operation_duration)_seconds_bucket;(0.25|2.5|15|25|120|600)(\.0)?
+      - action: drop # the apiserver job already scrapes these families
+        sourceLabels: [__name__]
+        regex: (apiserver|etcd|scheduler)_.*
 kubeEtcd: { enabled: false }
 kubeControllerManager: { enabled: false }
 kubeScheduler: { enabled: false }

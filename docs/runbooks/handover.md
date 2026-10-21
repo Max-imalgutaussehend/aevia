@@ -33,7 +33,7 @@ chat history); the agent answers with `.handover/<slug>/RESULT.md` (what was don
 
 ## What the agent can and cannot do
 - It runs Claude Code headless (`claude -p`, permission mode `acceptEdits`, an allow-list of tools: file edits, git, python, node, npm, make, pytest) through the AI gateway, so model quality is that of the free pool.
-- It can read and write the repository it was given and reach the gateway, one S3 bucket and ntfy. It has no cluster access and no databases (network policies).
+- It can read and write the repository it was given and reach the gateway and ntfy. It has no cluster access and no databases (network policies).
 - It cannot log in anywhere, use laptop secrets or do interactive and visual checks; those go to "Needs the laptop".
 - Limits: 60 turns and 90 minutes per run (`HANDOVER_MAX_TURNS`, `HANDOVER_TIMEOUT`). It pushes only to the handover branch.
 

@@ -19,3 +19,7 @@ resultsCache: { enabled: false }
 lokiCanary: { enabled: false }
 test: { enabled: false }
 gateway: { enabled: false }
+# No Loki rules exist (no ConfigMap with the label loki_rule): the rules sidecar only watched and held 68 MiB (ADR 0042).
+sidecar:
+  rules:
+    enabled: false

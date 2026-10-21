@@ -23,6 +23,5 @@ their Secrets (`CreateContainerConfigError`) rather than starting with defaults.
 `N8N_ENCRYPTION_KEY` must be the R1 value: it decrypts credentials in the restored DB.
 | authentik-env | platform | AUTHENTIK_SECRET_KEY, AUTHENTIK_POSTGRESQL__PASSWORD, AUTHENTIK_BOOTSTRAP_PASSWORD, AUTHENTIK_BOOTSTRAP_TOKEN |
 | grafana-admin | observability | admin-user, admin-password |
-| s3-auth | data | s3.json (SeaweedFS identities: {"identities":[{"name":..,"credentials":[{"accessKey":..,"secretKey":..}],"actions":["Admin","Read","Write","List","Tagging"]}]}) |
 | freellmapi-env | platform | ENCRYPTION_KEY (same as the adopted instance) |
 | freellmapi-seed | platform | optional: the SQLite files, built by scripts/freellmapi-seed.sh |

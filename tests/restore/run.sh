@@ -16,13 +16,11 @@ kubectl -n data create secret generic postgres-auth --from-literal=POSTGRES_USER
   --from-literal=POSTGRES_AUTHENTIK_PASSWORD="$(rnd)"
 kubectl -n data create secret generic pg-backup-auth --from-literal=PGUSER=postgres --from-literal=PGPASSWORD="$PW"
 kubectl -n data create secret generic redis-auth --from-literal=REDIS_PASSWORD="$(rnd)"
-AK=$(rnd); SK=$(rnd)
-kubectl -n data create secret generic s3-auth --from-literal=s3.json="{\"identities\":[{\"name\":\"admin\",\"credentials\":[{\"accessKey\":\"$AK\",\"secretKey\":\"$SK\"}],\"actions\":[\"Admin\",\"Read\",\"Write\",\"List\",\"Tagging\"]}]}"
-# Only postgres + backup + s3: the other data components are covered by kubeconform.
+# Only postgres + backup: the other data components are covered by kubeconform.
 kubectl -n data apply -f <(kubectl kustomize gitops/base/data | python3 -c '
 import sys, yaml
 for d in yaml.safe_load_all(sys.stdin):
-    if d and d["metadata"]["name"].startswith(("postgres","s3")) and d["kind"] != "NetworkPolicy":
+    if d and d["metadata"]["name"].startswith(("postgres",)) and d["kind"] != "NetworkPolicy":
         print("---"); print(yaml.safe_dump(d))
 ')
 kubectl -n data rollout status statefulset/postgres --timeout=240s
@@ -44,16 +42,4 @@ kubectl -n data run restore --rm -i --restart=Never --image=postgres:17.7-alpine
 got=$(psql -d n8n -c "select v from restore_probe")
 echo "restored value: ${got:-none}"
 [[ $got == survives ]] || { echo "FAIL"; exit 1; }
-echo "-- s3 auth"
-kubectl -n data rollout status statefulset/s3 --timeout=240s
-# Anonymous access must be refused. Without the identities file SeaweedFS answers 200 here (verified
-# locally, together with signed valid/invalid keys using aws-cli, which misbehaves on the CI runner).
-status=none
-for i in 1 2 3 4 5 6 7 8; do
-  status=$(kubectl -n data exec s3-0 -- wget -S -q -O /dev/null http://127.0.0.1:8333/ 2>&1 | grep -m1 'HTTP/' | tr -d '\r' || true)
-  [[ $status == *403* ]] && break
-  sleep 10
-done
-echo "anonymous S3 request -> ${status:-no response} (expect 403)"
-[[ $status == *403* ]] || { kubectl -n data logs s3-0 --tail=20 || true; echo "FAIL: anonymous S3 access not refused"; exit 1; }
 echo PASS
