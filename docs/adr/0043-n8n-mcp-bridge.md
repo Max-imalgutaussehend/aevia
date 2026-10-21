@@ -21,6 +21,13 @@ the gateway needs its key, and credentials cannot be created through the MCP too
 (AES like CryptoJS, key from `N8N_ENCRYPTION_KEY`), shared with the owner's project; the key comes from the secret `herdr-gateway` and is not printed. A workflow attaches it with the
 `n8n_update_workflow` operation `setNodeCredential`. The MCP server's instructions carry these addresses so a client without any context (claude.ai) knows where n8n and the gateway are.
 
+## Notifications from workflows, rate limit, memory (same day)
+- Workflows push to ntfy through a write-only user `n8n` on topic `aevia` (the topic the phone already follows): egress for n8n, policy `ntfy-from-n8n`, secret `n8n-ntfy`,
+  user made with `scripts/ntfy-user.sh n8n n8n-ntfy`, credential "Aevia ntfy" (Basic Auth) with `scripts/n8n-credential.py ntfy`. A workflow built in claude.ai ("Daily Newsflash", 07:00, four RSS feeds, summary through the gateway with
+  `model: auto` so the gateway falls back by itself) failed at ntfy because there was no network path and no login; it ran end to end after this and was published.
+- n8n's MCP server answers 429 above `N8N_MCP_SERVER_RATE_LIMIT` (default 100). The bridge opens a session per call, so building a workflow used the budget up and the MCP access seemed to drop. The limit is 1000 now (internal traffic only).
+- n8n ran at 719 of 768 MiB with RSS feeds and the AI digest; limit 1 GiB, heap 768 MiB.
+
 ## Consequences
 - Whoever can call this MCP server (Max through claude.ai, Jarvis) can create, change, publish and run n8n workflows as the owner. Archiving is a tool; permanently deleting is not.
 - Verified end to end on 2026-10-21: validate, create, read and archive of a two-node test workflow through the bridge (the archived workflow is still listed under archived workflows in n8n).
