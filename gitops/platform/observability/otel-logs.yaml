@@ -1,0 +1,35 @@
+# Container logs into Loki: a DaemonSet collector tails /var/log/pods on the node, adds namespace, pod and container
+# (k8sattributes) and sends them to Loki's OTLP endpoint. Query labels are k8s_namespace_name, k8s_pod_name, k8s_container_name.
+# Runs as root because the node's pod log files are root-only; the observability namespace allows that (PSS privileged).
+fullnameOverride: otel-logs
+mode: daemonset
+image: { repository: otel/opentelemetry-collector-contrib }
+command: { name: otelcol-contrib }
+presets:
+  logsCollection: { enabled: true, includeCollectorLogs: false }
+  kubernetesAttributes: { enabled: true }
+securityContext: { runAsUser: 0, runAsGroup: 0 }
+config:
+  receivers:
+    otlp: null
+    jaeger: null
+    prometheus: null
+    zipkin: null
+  processors:
+    memory_limiter: { check_interval: 5s, limit_mib: 150 }
+    batch: {}
+  exporters:
+    otlphttp/loki: { endpoint: http://loki.observability.svc.cluster.local:3100/otlp }
+  service:
+    pipelines:
+      logs: { receivers: [filelog], processors: [memory_limiter, k8sattributes, batch], exporters: [otlphttp/loki] }
+      traces: null
+      metrics: null
+ports:
+  otlp: { enabled: false }
+  otlp-http: { enabled: false }
+  jaeger-compact: { enabled: false }
+  jaeger-thrift: { enabled: false }
+  jaeger-grpc: { enabled: false }
+  zipkin: { enabled: false }
+resources: { requests: { cpu: 50m, memory: 96Mi }, limits: { memory: 256Mi } }

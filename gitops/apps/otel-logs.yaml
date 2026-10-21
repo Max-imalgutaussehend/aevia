@@ -1,0 +1,28 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: otel-logs
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: '6'
+spec:
+  project: default
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: observability
+  syncPolicy:
+    syncOptions:
+    - ServerSideApply=true
+    automated:
+      prune: false
+      selfHeal: true
+  sources:
+  - repoURL: https://open-telemetry.github.io/opentelemetry-helm-charts
+    chart: opentelemetry-collector
+    targetRevision: 0.175.1
+    helm:
+      valueFiles:
+      - $values/gitops/platform/observability/otel-logs.yaml
+  - repoURL: https://github.com/Max-imalgutaussehend/aevia.git
+    targetRevision: main
+    ref: values
