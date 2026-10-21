@@ -29,7 +29,7 @@ spec:
         fsGroup: 10001
       containers:
       - name: mcp
-        image: ghcr.io/max-imalgutaussehend/aevia-mcp@sha256:bee7916b497015b5a89ddd8cda7fac11be382717aef5955cdbfa1d0f2220f08e
+        image: ghcr.io/max-imalgutaussehend/aevia-mcp@sha256:efcc4bb507284e86ac1201abad30d33184e889c88ce6c8f6ba9c485698b5bb4a
         ports:
         - name: http
           containerPort: 8000
@@ -59,6 +59,8 @@ spec:
         - name: var-run
           mountPath: /var/run
         env:
+        - name: N8N_MCP_URL
+          value: http://n8n.apps.svc.cluster.local:5678/mcp-server/http
         - name: PUBLIC_URL
           value: https://mcp.maxrommel.de
         - name: OIDC_CLIENT_ID
@@ -81,6 +83,8 @@ spec:
         - secretRef:
             name: mcp-vault-git
             optional: true
+        - secretRef:
+            name: mcp-n8n
         - secretRef:
             name: mcp-internal
         readinessProbe:
@@ -189,6 +193,15 @@ spec:
       protocol: UDP
     - port: 53
       protocol: TCP
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: apps
+      podSelector:
+        matchLabels:
+          app.kubernetes.io/name: n8n
+    ports:
+    - port: 5678
   - to:
     - ipBlock:
         cidr: 0.0.0.0/0

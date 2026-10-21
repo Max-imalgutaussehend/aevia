@@ -97,7 +97,7 @@ services:
     scratch_paths: [/config, /data]
 
   - name: mcp
-    image: ghcr.io/max-imalgutaussehend/aevia-mcp@sha256:bee7916b497015b5a89ddd8cda7fac11be382717aef5955cdbfa1d0f2220f08e
+    image: ghcr.io/max-imalgutaussehend/aevia-mcp@sha256:efcc4bb507284e86ac1201abad30d33184e889c88ce6c8f6ba9c485698b5bb4a
     type: application
     description: "Aevia MCP server: platform, metrics, logs, vault (read and write), AI gateway and push (repo aevia-mcp); private, OAuth via Authentik"
     port: 8000
@@ -105,7 +105,7 @@ services:
     gate: access
     access_ip_bypass: ["160.79.104.0/21"] # Anthropic's outbound range (platform.claude.com/docs/en/api/ip-addresses): claude.ai connects from there; everyone else gets the login
     # every /mcp call additionally needs an Authentik OAuth token
-    needs: []
+    needs: [n8n] # n8n's own MCP server (workflow builder), bridged as n8n_* tools
     internet: true # Authentik introspection over its public hostname
     persistence: none
     uid: 10001
@@ -117,8 +117,9 @@ services:
       - { name: aevia-mcp-ntfy, optional: true } # NTFY_USER / NTFY_PASSWORD of the write-only ntfy user (SOPS)
       - { name: aevia-mcp-gateway, optional: true } # GATEWAY_API_KEY = FreeLLMAPI unified key; created by hand, never committed
       - { name: mcp-vault-git, optional: true } # VAULT_GIT_URL with a Forgejo token that can write the vault (write:repository); created by hand, never committed
+      - mcp-n8n # N8N_MCP_TOKEN: token of n8n's MCP server for the owner (made by scripts/n8n-mcp-token.py, SOPS)
       - mcp-internal # INTERNAL_TOKEN: static bearer for in-cluster callers (Jarvis), refused when the request came through Cloudflare (SOPS)
-    env: { PUBLIC_URL: "https://mcp.maxrommel.de", OIDC_CLIENT_ID: aevia-mcp, OIDC_ISSUER: "https://authentik.maxrommel.de/application/o/aevia-mcp/", EXCLUDE_DIRS: "Privat", HOME: /home/mcp } # Privat: not readable, but writable (WRITE_EXCLUDE_DIRS is empty)
+    env: { N8N_MCP_URL: "http://n8n.apps.svc.cluster.local:5678/mcp-server/http", PUBLIC_URL: "https://mcp.maxrommel.de", OIDC_CLIENT_ID: aevia-mcp, OIDC_ISSUER: "https://authentik.maxrommel.de/application/o/aevia-mcp/", EXCLUDE_DIRS: "Privat", HOME: /home/mcp } # Privat: not readable, but writable (WRITE_EXCLUDE_DIRS is empty)
 
   - name: jarvis
     image: ghcr.io/max-imalgutaussehend/jarvis-brain@sha256:0aad43a69e3e56ff1f50965bdd0224c5775d483b47751c4b3071c55fcd61fd6d
