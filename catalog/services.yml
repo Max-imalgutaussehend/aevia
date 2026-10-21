@@ -97,7 +97,7 @@ services:
     scratch_paths: [/config, /data]
 
   - name: mcp
-    image: ghcr.io/max-imalgutaussehend/aevia-mcp@sha256:af4b87db11014cee3a5e3e253454071bd1987e3a602058617b45da8473550fe0
+    image: ghcr.io/max-imalgutaussehend/aevia-mcp@sha256:bee7916b497015b5a89ddd8cda7fac11be382717aef5955cdbfa1d0f2220f08e
     type: application
     description: "Aevia MCP server: platform, metrics, logs, vault (read and write), AI gateway and push (repo aevia-mcp); private, OAuth via Authentik"
     port: 8000
@@ -118,10 +118,10 @@ services:
       - { name: aevia-mcp-gateway, optional: true } # GATEWAY_API_KEY = FreeLLMAPI unified key; created by hand, never committed
       - { name: mcp-vault-git, optional: true } # VAULT_GIT_URL with a Forgejo token that can write the vault (write:repository); created by hand, never committed
       - mcp-internal # INTERNAL_TOKEN: static bearer for in-cluster callers (Jarvis), refused when the request came through Cloudflare (SOPS)
-    env: { PUBLIC_URL: "https://mcp.maxrommel.de", OIDC_CLIENT_ID: aevia-mcp, OIDC_ISSUER: "https://authentik.maxrommel.de/application/o/aevia-mcp/", EXCLUDE_DIRS: "Privat", HOME: /home/mcp }
+    env: { PUBLIC_URL: "https://mcp.maxrommel.de", OIDC_CLIENT_ID: aevia-mcp, OIDC_ISSUER: "https://authentik.maxrommel.de/application/o/aevia-mcp/", EXCLUDE_DIRS: "Privat", HOME: /home/mcp } # Privat: not readable, but writable (WRITE_EXCLUDE_DIRS is empty)
 
   - name: jarvis
-    image: ghcr.io/max-imalgutaussehend/jarvis-brain@sha256:8f2ef51bfbbfe71897d2dd6d748bf8c14a68beb04d8bfe981f20573138aaef9b
+    image: ghcr.io/max-imalgutaussehend/jarvis-brain@sha256:6535df2ee0d3b061618d92700bf27130079c3e8ff21e0fadd5f945d5f8550f47
     type: application
     namespace: agents # Claude Code runs here with edit rights: same isolation as the Herdr workspace (gateway only, no databases)
     description: "Jarvis brain: UI, sessions and Claude Code for the voice assistant (repo jarvis, branch spike/deployment); the voice node runs on the laptop"

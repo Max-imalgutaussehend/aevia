@@ -22,7 +22,7 @@ Jarvis is a voice assistant for Claude Code (own repo, private). Its client/serv
 ## Update 2: handover, background tasks, vault writing
 - Handover from Jarvis through an authenticated API in the Herdr pod (see the handover runbook); only Jarvis can reach it, only the owner's repositories are accepted.
 - A turn longer than 30 s continues in the background; Jarvis says so, speaks and pushes (ntfy, write-only user) the result, and lists it in the task list. The brain mirrors the server agent's handovers as tasks.
-- The MCP server has `write_note` (create, append, overwrite; one git commit, pushed at once, rolled back if the push fails; hidden and excluded folders refused; no delete). It uses a Forgejo token with `write:repository`, kept in the hand-made secret `mcp-vault-git`. The git history of the vault is the undo.
+- The MCP server has `write_note` (create, append, overwrite; one git commit, pushed at once, rolled back if the push fails; hidden folders refused; the private folder is writable but neither readable nor searchable; no delete). It uses a Forgejo token with `write:repository`, kept in the hand-made secret `mcp-vault-git`. The git history of the vault is the undo.
 - In conversation mode every sound is a command: a lecture in the room became chats. Mute the microphone (M) when others are talking.
 
 ## Consequences
