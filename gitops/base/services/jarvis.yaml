@@ -28,7 +28,7 @@ spec:
         fsGroup: 1000
       containers:
       - name: jarvis
-        image: ghcr.io/max-imalgutaussehend/jarvis-brain@sha256:898d79b63b18a1162ac9f462d49c599e14dc465c24fbf3c0ea7789518ec87c48
+        image: ghcr.io/max-imalgutaussehend/jarvis-brain@sha256:0200b221d82c362fe4ccf0d4254c37ba4c6382b5966e8ad30d1812574d0c07ca
         ports:
         - name: http
           containerPort: 8787
@@ -55,6 +55,8 @@ spec:
           value: http://freellmapi.platform.svc.cluster.local:3001
         - name: HOME
           value: /data/home
+        - name: JARVIS_PUBLIC_URL
+          value: https://jarvis.maxrommel.de
         - name: JARVIS_PORT
           value: '8787'
         - name: JARVIS_DATA

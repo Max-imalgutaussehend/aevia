@@ -120,7 +120,7 @@ services:
     env: { PUBLIC_URL: "https://mcp.maxrommel.de", OIDC_CLIENT_ID: aevia-mcp, OIDC_ISSUER: "https://authentik.maxrommel.de/application/o/aevia-mcp/", EXCLUDE_DIRS: "Privat", HOME: /home/mcp }
 
   - name: jarvis
-    image: ghcr.io/max-imalgutaussehend/jarvis-brain@sha256:898d79b63b18a1162ac9f462d49c599e14dc465c24fbf3c0ea7789518ec87c48
+    image: ghcr.io/max-imalgutaussehend/jarvis-brain@sha256:0200b221d82c362fe4ccf0d4254c37ba4c6382b5966e8ad30d1812574d0c07ca
     type: application
     namespace: agents # Claude Code runs here with edit rights: same isolation as the Herdr workspace (gateway only, no databases)
     description: "Jarvis brain: UI, sessions and Claude Code for the voice assistant (repo jarvis, branch spike/deployment); the voice node runs on the laptop"
@@ -138,6 +138,7 @@ services:
     env:
       ANTHROPIC_BASE_URL: "http://freellmapi.platform.svc.cluster.local:3001"
       HOME: /data/home # Claude's session files must survive restarts for --resume
+      JARVIS_PUBLIC_URL: "https://jarvis.maxrommel.de" # filled into the laptop setup script
       JARVIS_PORT: "8787" # explicit: Kubernetes injects JARVIS_PORT=tcp://... for the service named jarvis and would override the image default
       JARVIS_DATA: /data/jarvis
       JARVIS_CWD: /data/workspace
