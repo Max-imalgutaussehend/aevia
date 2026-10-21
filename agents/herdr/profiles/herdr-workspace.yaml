@@ -25,7 +25,7 @@ spec:
       securityContext: { runAsNonRoot: true, runAsUser: 10001, runAsGroup: 10001, fsGroup: 10001, seccompProfile: { type: RuntimeDefault } }
       containers:
         - name: herdr
-          image: ghcr.io/max-imalgutaussehend/aevia-herdr@sha256:0acc207e4d596e1478b3ccfcc22d5da0ddcbbc5e958950fd5cf62480a0f0dced
+          image: ghcr.io/max-imalgutaussehend/aevia-herdr@sha256:c09d34570f50cdca2f2b8f912b58f0f11900cece0c213034b28e5dac3ac8cc52
           env:
             # FreeLLMAPI speaks both wire formats: OpenAI at /v1, Anthropic Messages at /v1/messages (Claude Code appends the path).
             - { name: ANTHROPIC_BASE_URL, value: "http://freellmapi.platform.svc.cluster.local:3001" }
