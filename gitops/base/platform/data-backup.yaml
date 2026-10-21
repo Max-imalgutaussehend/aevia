@@ -1,0 +1,62 @@
+# Daily encrypted copy of the platform volumes that hold state outside PostgreSQL: Forgejo (git repositories and its SQLite
+# database, i.e. the central Obsidian vault), Uptime Kuma and ntfy. Same rclone crypt remote as the gateway backup
+# (secret freellmapi-backup-offsite, bucket aevia-backups), subfolders forgejo/, status/, ntfy/ per day; 14 days are kept.
+# Volumes are mounted read-only (RWO is fine: the single node). The copy runs while the apps run: git objects are append-only
+# and SQLite is small, so a rare inconsistent copy is possible; the 14 daily generations are the safety net.
+apiVersion: batch/v1
+kind: CronJob
+metadata: { name: platform-data-backup, namespace: platform, labels: { app.kubernetes.io/name: platform-data-backup } }
+spec:
+  schedule: "7 3 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 2
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      template:
+        metadata: { labels: { app.kubernetes.io/name: platform-data-backup, app.kubernetes.io/part-of: aevia } }
+        spec:
+          restartPolicy: Never
+          automountServiceAccountToken: false
+          securityContext: { runAsNonRoot: true, runAsUser: 1000, runAsGroup: 1000, fsGroup: 1000, seccompProfile: { type: RuntimeDefault } }
+          containers:
+            - name: upload
+              image: rclone/rclone:1.70.3@sha256:34c729127386abec1c610b2aa024e39b4498dc2b4a72a0798ae21fbdc1b0493b
+              command: ["sh", "-c"]
+              args:
+                - |
+                  set -eu
+                  d=$(date -u +%Y%m%d)
+                  for n in forgejo status ntfy; do
+                    rclone copy "/src/$n" "enc:$n/$d" --no-traverse
+                    rclone check "/src/$n" "enc:$n/$d" --one-way --size-only 2>&1 | tail -1
+                  done
+                  rclone delete enc: --min-age 14d
+                  rclone size "enc:forgejo/$d"
+              env: [{ name: HOME, value: /tmp }]
+              envFrom: [{ secretRef: { name: freellmapi-backup-offsite } }]
+              resources: { requests: { cpu: 50m, memory: 64Mi }, limits: { memory: 384Mi } }
+              securityContext: { allowPrivilegeEscalation: false, capabilities: { drop: [ALL] }, readOnlyRootFilesystem: true }
+              volumeMounts:
+                - { name: forgejo, mountPath: /src/forgejo, readOnly: true }
+                - { name: status, mountPath: /src/status, readOnly: true }
+                - { name: ntfy, mountPath: /src/ntfy, readOnly: true }
+                - { name: tmp, mountPath: /tmp }
+          volumes:
+            - { name: forgejo, persistentVolumeClaim: { claimName: forgejo-data, readOnly: true } }
+            - { name: status, persistentVolumeClaim: { claimName: status-data, readOnly: true } }
+            - { name: ntfy, persistentVolumeClaim: { claimName: ntfy-data, readOnly: true } }
+            - { name: tmp, emptyDir: {} }
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: { name: platform-data-backup-egress, namespace: platform }
+spec:
+  podSelector: { matchLabels: { app.kubernetes.io/name: platform-data-backup } }
+  policyTypes: [Egress]
+  egress:
+    - to: [{ namespaceSelector: {}, podSelector: { matchLabels: { k8s-app: kube-dns } } }]
+      ports: [{ port: 53, protocol: UDP }, { port: 53, protocol: TCP }]
+    - to: [{ ipBlock: { cidr: 0.0.0.0/0, except: [10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16] } }]
+      ports: [{ port: 443 }]
