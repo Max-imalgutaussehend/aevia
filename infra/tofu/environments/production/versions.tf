@@ -7,7 +7,7 @@ terraform {
   # backend, then state is migrated (docs/runbooks/tofu-bootstrap.md).
   backend "s3" {
     key                         = "aevia/production.tfstate"
-    region                      = "eu-central"
+    region                      = "auto"
     skip_credentials_validation = true
     skip_region_validation      = true
     skip_requesting_account_id  = true
@@ -19,6 +19,5 @@ terraform {
   required_providers {
     hcloud     = { source = "hetznercloud/hcloud", version = "~> 1.48" }
     cloudflare = { source = "cloudflare/cloudflare", version = "~> 5.0" }
-    aws        = { source = "hashicorp/aws", version = "~> 5.0" }
   }
 }

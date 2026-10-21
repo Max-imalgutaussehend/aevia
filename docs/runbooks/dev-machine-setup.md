@@ -55,5 +55,5 @@ Argo CD UI/CLI: `kubectl -n argocd port-forward svc/argocd-server 8080:443`; adm
 
 ## 6. Other
 
-Backups: Postgres dumps nightly into the Hetzner bucket `aevia-backups/postgres` (rclone crypt, config in secret `backup-offsite`); R1 archive in `aevia-backups/r1-final/` (age-encrypted to the cluster key).
+Backups: Postgres dumps nightly into the Cloudflare R2 bucket `aevia-backups/postgres` (rclone crypt, config in secret `backup-offsite`); R1 archive in `aevia-backups/r1-final/` (age-encrypted to the cluster key).
 Runbooks: `r2-bring-up.md`, `restore.md`, `ai-gateway.md`. Claude Code works the same here: open the repo and follow `docs/migration/R2-PLAN.md`.

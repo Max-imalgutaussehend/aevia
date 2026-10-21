@@ -25,6 +25,14 @@ spec:
               args:
                 - |
                   set -eu
+                  # Free-tier guard: R2 stays free below 10 GB. Refuse to upload above 7 GB (the job fails and shows up as a failed Job).
+                  used=0
+                  for b in aevia-backups aevia-archive; do
+                    n=$(rclone size "r2:$b" --json | sed -n 's/.*"bytes":\([0-9]*\).*/\1/p')
+                    used=$((used + n))
+                  done
+                  echo "r2 used: $((used / 1048576)) MiB of 10240 MiB free tier"
+                  if [ "$used" -gt 7516192768 ]; then echo "ABORT: R2 above 7 GiB, free tier at risk" >&2; exit 1; fi
                   d=$(date -u +%Y%m%d)
                   rclone copy /data "enc:$d" --no-traverse
                   rclone delete enc: --min-age 14d

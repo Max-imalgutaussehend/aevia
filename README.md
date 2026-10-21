@@ -42,7 +42,7 @@ flowchart LR
     obs[Loki, Tempo, OTel] -.- ops
   end
   cf -->|outbound tunnel| cfd
-  data -->|nightly, encrypted| bucket[(Hetzner Object Storage)]
+  data -->|nightly, encrypted| bucket[(Cloudflare R2, free tier)]
 ```
 
 More detail with the reasoning behind each piece: [aevia.maxrommel.de](https://aevia.maxrommel.de/architecture/) and the decision records in [`docs/adr`](docs/adr).
@@ -51,14 +51,14 @@ More detail with the reasoning behind each piece: [aevia.maxrommel.de](https://a
 
 | Area | Components |
 |---|---|
-| Infrastructure | OpenTofu (Hetzner server, firewall, buckets; Cloudflare DNS, tunnel, Access), k3s, Cilium |
+| Infrastructure | OpenTofu (Hetzner server, firewall; Cloudflare DNS, tunnel, Access), k3s, Cilium |
 | Delivery | Argo CD, manifests generated from one service catalog (`catalog/services.yml`), SOPS + age |
 | Edge and sign-in | Cloudflare Tunnel and Access, Authentik (OIDC for Cloudflare, Grafana, Argo CD, Forgejo, the MCP server) |
 | Data | PostgreSQL, Redis, NATS, SeaweedFS (S3) |
 | Applications | n8n, Uptime Kuma, ntfy, static websites (each in its own repo), Forgejo (git), an Obsidian MCP server for claude.ai |
 | AI | FreeLLMAPI gateway (OpenAI and Anthropic wire formats), Herdr agent workspace |
 | Observability | Prometheus, Grafana, Loki, Tempo, OpenTelemetry collector |
-| Backup | nightly PostgreSQL dump and gateway volume, encrypted before upload to a Hetzner bucket |
+| Backup | nightly PostgreSQL dump and gateway volume, encrypted before upload to Cloudflare R2 (stays inside the free tier, guarded) |
 
 ## Repository layout
 
@@ -94,7 +94,7 @@ bash tests/smoke/run.sh                     # the real manifests start on kind
 ## Run your own
 
 This is a personal platform, not a product: the domain `maxrommel.de`, the Hetzner project and the Cloudflare account are mine. To adapt it you need a
-Hetzner Cloud project and Object Storage, a domain on Cloudflare, an age key and a GitHub account. Start with
+Hetzner Cloud project, a domain on Cloudflare (with R2 for backups and Tofu state), an age key and a GitHub account. Start with
 [`docs/runbooks/r2-bring-up.md`](docs/runbooks/r2-bring-up.md); the domain is set in `infra/tofu/environments/production/production.tfvars` and `generator/render_k8s.py`.
 Setting up a second development machine: [`docs/runbooks/dev-machine-setup.md`](docs/runbooks/dev-machine-setup.md).
 

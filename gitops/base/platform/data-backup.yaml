@@ -1,6 +1,6 @@
 # Daily encrypted copy of the platform volumes that hold state outside PostgreSQL: Forgejo (git repositories and its SQLite
 # database, i.e. the central Obsidian vault), Uptime Kuma and ntfy. Same rclone crypt remote as the gateway backup
-# (secret freellmapi-backup-offsite, bucket aevia-backups), subfolders forgejo/, status/, ntfy/ per day; 14 days are kept.
+# (secret freellmapi-backup-offsite, bucket aevia-backups), one .tgz per volume in forgejo/, status/, ntfy/ per day; 14 days are kept.
 # Volumes are mounted read-only (RWO is fine: the single node). The copy runs while the apps run: git objects are append-only
 # and SQLite is small, so a rare inconsistent copy is possible; the 14 daily generations are the safety net.
 apiVersion: batch/v1
@@ -27,13 +27,22 @@ spec:
               args:
                 - |
                   set -eu
+                  # Free-tier guard: R2 stays free below 10 GB. Refuse to upload above 7 GB (the job fails and shows up as a failed Job).
+                  used=0
+                  for b in aevia-backups aevia-archive; do
+                    n=$(rclone size "r2:$b" --json | sed -n 's/.*"bytes":\([0-9]*\).*/\1/p')
+                    used=$((used + n))
+                  done
+                  echo "r2 used: $((used / 1048576)) MiB of 10240 MiB free tier"
+                  if [ "$used" -gt 7516192768 ]; then echo "ABORT: R2 above 7 GiB, free tier at risk" >&2; exit 1; fi
                   d=$(date -u +%Y%m%d)
+                  # One archive per volume: a few PUTs a night instead of one per git object.
                   for n in forgejo status ntfy; do
-                    rclone copy "/src/$n" "enc:$n/$d" --no-traverse
-                    rclone check "/src/$n" "enc:$n/$d" --one-way --size-only 2>&1 | tail -1
+                    tar cz -C "/src/$n" . | rclone rcat "enc:$n/$d/$n.tgz"
+                    rclone lsf "enc:$n/$d/$n.tgz" | grep -q .
                   done
                   rclone delete enc: --min-age 14d
-                  rclone size "enc:forgejo/$d"
+                  rclone ls "enc:forgejo/$d"
               env: [{ name: HOME, value: /tmp }]
               envFrom: [{ secretRef: { name: freellmapi-backup-offsite } }]
               resources: { requests: { cpu: 50m, memory: 64Mi }, limits: { memory: 384Mi } }

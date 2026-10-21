@@ -34,21 +34,6 @@ variable "ssh_allowed_cidrs" {
   default = []
 }
 
-variable "object_storage_endpoint" {
-  description = "e.g. https://nbg1.your-objectstorage.com"
-  type        = string
-}
-
-variable "object_storage_access_key" {
-  type      = string
-  sensitive = true
-}
-
-variable "object_storage_secret_key" {
-  type      = string
-  sensitive = true
-}
-
 variable "nodes" {
   type = map(object({
     role        = string

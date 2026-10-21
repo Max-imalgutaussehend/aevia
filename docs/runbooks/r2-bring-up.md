@@ -1,6 +1,6 @@
 # Runbook: R2 bring-up (executed 2026-10-20)
 
-Node: `aevia-control-01` (Hetzner cx33, Helsinki). Tofu state is in the `aevia-tofu-state` bucket.
+Node: `aevia-control-01` (Hetzner cx33, Helsinki). Tofu state is in the Cloudflare R2 bucket `aevia-tofu-state` (see ADR 0039).
 Credentials come from `~/.config/aevia/secrets.env` (TF_VAR_hcloud_token, object-storage keys); nothing is in git.
 
 1. **Server (06):** already applied via `tofu`. The Hetzner firewall only admits `ssh_allowed_cidrs`; add your current

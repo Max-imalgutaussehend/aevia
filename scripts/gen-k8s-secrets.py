@@ -35,21 +35,21 @@ def write(name, ns, data, labels=None):
     print(f"created {f.name}")
 
 def write_offsite(name="backup-offsite", ns="data", prefix="postgres"):
-    """rclone env config: Hetzner Object Storage bucket, client-side encrypted (crypt) so dumps are unreadable there."""
+    """rclone env config: Cloudflare R2 bucket aevia-backups (free tier), client-side encrypted (crypt) so dumps are unreadable there.
+    Credentials: R2 S3 token (Object Read & Write on the aevia buckets) in ~/.config/aevia/r2-keys.env."""
     if (OUT / f"{name}.enc.yaml").exists():
         print(f"keep    {name}.enc.yaml")
         return
-    sec = Path.home() / ".config" / "aevia" / "secrets.env"
-    ak = read_env(sec, "export TF_VAR_object_storage_access_key")
-    sk = read_env(sec, "export TF_VAR_object_storage_secret_key")
+    keys = Path.home() / ".config" / "aevia" / "r2-keys.env"
     obscure = lambda v: subprocess.run(
         ["docker", "run", "--rm", "rclone/rclone:1.70.3", "obscure", v],
         capture_output=True, text=True, check=True).stdout.strip()
     write(name, ns, {
-        "RCLONE_CONFIG_HZ_TYPE": "s3", "RCLONE_CONFIG_HZ_PROVIDER": "Other",
-        "RCLONE_CONFIG_HZ_ENDPOINT": "https://hel1.your-objectstorage.com", "RCLONE_CONFIG_HZ_REGION": "hel1",
-        "RCLONE_CONFIG_HZ_ACCESS_KEY_ID": ak, "RCLONE_CONFIG_HZ_SECRET_ACCESS_KEY": sk,
-        "RCLONE_CONFIG_ENC_TYPE": "crypt", "RCLONE_CONFIG_ENC_REMOTE": f"hz:aevia-backups/{prefix}",
+        "RCLONE_CONFIG_R2_TYPE": "s3", "RCLONE_CONFIG_R2_PROVIDER": "Cloudflare",
+        "RCLONE_CONFIG_R2_ENDPOINT": read_env(keys, "R2_ENDPOINT"), "RCLONE_CONFIG_R2_NO_CHECK_BUCKET": "true",
+        "RCLONE_CONFIG_R2_ACCESS_KEY_ID": read_env(keys, "R2_ACCESS_KEY_ID"),
+        "RCLONE_CONFIG_R2_SECRET_ACCESS_KEY": read_env(keys, "R2_SECRET_ACCESS_KEY"),
+        "RCLONE_CONFIG_ENC_TYPE": "crypt", "RCLONE_CONFIG_ENC_REMOTE": f"r2:aevia-backups/{prefix}",
         "RCLONE_CONFIG_ENC_PASSWORD": obscure(rnd(40)), "RCLONE_CONFIG_ENC_PASSWORD2": obscure(rnd(40))})
 
 def write_oidc():
