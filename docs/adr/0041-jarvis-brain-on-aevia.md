@@ -19,6 +19,12 @@ Jarvis is a voice assistant for Claude Code (own repo, private). Its client/serv
 - The brain reaches the platform MCP server with a shared internal token (secrets `mcp-internal` in apps and `jarvis-mcp` in agents). The MCP server accepts that token only for calls that did not come through Cloudflare; a NetworkPolicy allows exactly Jarvis to reach it.
 - Claude Code runs with an explicit allowlist: read and web by default, edit rights and extra tools per workspace, `--max-turns` and a turn timeout, the whole process group is killed on stop. `main` of the jarvis repo is this mode.
 
+## Update 2: handover, background tasks, vault writing
+- Handover from Jarvis through an authenticated API in the Herdr pod (see the handover runbook); only Jarvis can reach it, only the owner's repositories are accepted.
+- A turn longer than 30 s continues in the background; Jarvis says so, speaks and pushes (ntfy, write-only user) the result, and lists it in the task list. The brain mirrors the server agent's handovers as tasks.
+- The MCP server has `write_note` (create, append, overwrite; one git commit, pushed at once, rolled back if the push fails; hidden and excluded folders refused; no delete). It uses a Forgejo token with `write:repository`, kept in the hand-made secret `mcp-vault-git`. The git history of the vault is the undo.
+- In conversation mode every sound is a command: a lecture in the room became chats. Mute the microphone (M) when others are talking.
+
 ## Consequences
 - Memory: limit 768 Mi in `agents` (quota 4 Gi); the node is at about 70 % memory.
 - Anyone who passes Access can make Claude edit files in the Jarvis volume: keep the Access policy to the operator.

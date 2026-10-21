@@ -53,3 +53,11 @@ Second run through the `handover` and `handover-back` skills on a GitHub reposit
 the image now has python3 and PyYAML. `herdr-git` holds one line per host: `git.maxrommel.de` (Forgejo) and `github.com` (fine-grained token, Contents read/write on `aevia`, `aevia-mcp`,
 `site-aevia`, `site-maxrommel`, 90 days: renew it before it expires on 2027-01-19; the file is `~/.config/aevia/github-token` on the laptop).
 
+## From Jarvis (voice or text)
+Jarvis (ADR 0041) can hand a task over without a laptop: "Übergib das an den Server" makes Claude in the Jarvis pod call the tool `handover_start`
+(repository, slug, the complete note). That is an HTTP call to the handover API in the Herdr pod (`aevia-handover-api`, port 8099, bearer token from the
+secret `handover-api`, reachable from Jarvis only). The API clones the repository, creates `handover/<slug>` with `.handover/<slug>/HANDOVER.md`, pushes it
+and starts the runner; only repositories of the allowed owners (`github.com/Max-imalgutaussehend`, `git.maxrommel.de/akadmin`) are accepted.
+Jarvis lists the handover in its task list, announces when it finishes and answers "wie ist es ausgegangen" with `handover_status` and `handover_result`.
+Taking the work back (merge, laptop steps) stays with the `handover-back` skill. Tried 2026-10-21: a docs change in this repository, 1 min 42 s from the spoken request to the pushed commit;
+the note Jarvis wrote had all sections but one wrong statement (it said the file did not exist), which the agent resolved itself: read the note before you trust it.
