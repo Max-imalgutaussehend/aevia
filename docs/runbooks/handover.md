@@ -46,5 +46,10 @@ chat history); the agent answers with `.handover/<slug>/RESULT.md` (what was don
 End to end on the cluster: a note `.handover/hello/HANDOVER.md` on branch `handover/hello` of `akadmin/handover-test` (Forgejo), started with
 `aevia-handover start`, Claude Code 2.1.304 headless through the AI gateway wrote `greet.js`, `greet.test.js` and `package.json`, committed, wrote `RESULT.md`
 (status done) and pushed the branch; the diff and `npm test` (3 of 3 passing) were checked independently in the pod. The `finished:` line in that RESULT.md carried an
-invented timestamp: the runner's own `finished` file is the reliable time. Git credentials in this setup cover `git.maxrommel.de` only; GitHub repositories need a token added to `herdr-git`.
+invented timestamp: the runner's own `finished` file is the reliable time. Fixed since: the runner now writes the real finish time into `RESULT.md`.
+
+Second run through the `handover` and `handover-back` skills on a GitHub repository (this one): a docs change (restore runbook) and a check task (`python3 generator/render_k8s.py --check`,
+13 services, 7 generated files; the numbers were re-checked on the laptop). The first run showed that the agent image had no Python, so it could not run the repository checks;
+the image now has python3 and PyYAML. `herdr-git` holds one line per host: `git.maxrommel.de` (Forgejo) and `github.com` (fine-grained token, Contents read/write on `aevia`, `aevia-mcp`,
+`site-aevia`, `site-maxrommel`, 90 days: renew it before it expires on 2027-01-19; the file is `~/.config/aevia/github-token` on the laptop).
 
