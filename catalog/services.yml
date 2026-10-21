@@ -121,7 +121,7 @@ services:
     env: { PUBLIC_URL: "https://mcp.maxrommel.de", OIDC_CLIENT_ID: aevia-mcp, OIDC_ISSUER: "https://authentik.maxrommel.de/application/o/aevia-mcp/", EXCLUDE_DIRS: "Privat", HOME: /home/mcp }
 
   - name: jarvis
-    image: ghcr.io/max-imalgutaussehend/jarvis-brain@sha256:b09062609d07b02c75720506be4aca668ff62824498f2781bc4fb24176f9fc2b
+    image: ghcr.io/max-imalgutaussehend/jarvis-brain@sha256:8f2ef51bfbbfe71897d2dd6d748bf8c14a68beb04d8bfe981f20573138aaef9b
     type: application
     namespace: agents # Claude Code runs here with edit rights: same isolation as the Herdr workspace (gateway only, no databases)
     description: "Jarvis brain: UI, sessions and Claude Code for the voice assistant (repo jarvis, branch spike/deployment); the voice node runs on the laptop"
