@@ -14,6 +14,11 @@ Jarvis is a voice assistant for Claude Code (own repo, private). Its client/serv
 - Image: built from the jarvis repo by CI, published as a public GHCR package (the repo stays private, the brain code is visible in the image, there are no secrets in it), digest pinned in the catalog.
 - Traefik may now reach the `agents` namespace; Herdr stays unreachable because `agents` denies ingress by default.
 
+## Update: laptop panel, MCP, harness
+- Settings of the page show whether the voice node on the laptop is connected and current; update, restart and a setup download (launchd agent) are buttons there.
+- The brain reaches the platform MCP server with a shared internal token (secrets `mcp-internal` in apps and `jarvis-mcp` in agents). The MCP server accepts that token only for calls that did not come through Cloudflare; a NetworkPolicy allows exactly Jarvis to reach it.
+- Claude Code runs with an explicit allowlist: read and web by default, edit rights and extra tools per workspace, `--max-turns` and a turn timeout, the whole process group is killed on stop. `main` of the jarvis repo is this mode.
+
 ## Consequences
 - Memory: limit 768 Mi in `agents` (quota 4 Gi); the node is at about 70 % memory.
 - Anyone who passes Access can make Claude edit files in the Jarvis volume: keep the Access policy to the operator.
