@@ -111,6 +111,13 @@ def write_handover_api():
         return
     write("handover-api", "agents", {"HANDOVER_API_TOKEN": rnd(48)})
 
+def write_n8n_ntfy():
+    """Write-only ntfy user `n8n` (topic aevia) for workflows. The user is created in ntfy with scripts/ntfy-user.sh, the credential "Aevia ntfy" in n8n with scripts/n8n-credential.py ntfy."""
+    if (OUT / "n8n-ntfy.enc.yaml").exists():
+        print("keep    n8n-ntfy.enc.yaml")
+        return
+    write("n8n-ntfy", "apps", {"NTFY_USER": "n8n", "NTFY_PASSWORD": rnd(32), "NTFY_TOPIC": "aevia"})
+
 def write_herdr_ntfy():
     """Write-only ntfy user `herdr`: the handover runner tells the operator when an agent has finished."""
     if (OUT / "herdr-ntfy.enc.yaml").exists():
@@ -143,6 +150,7 @@ def main():
     write_mcp_ntfy()
     write_jarvis_mcp()
     write_handover_api()
+    write_n8n_ntfy()
     write_herdr_ntfy()
     write("grafana-admin", "observability", {"admin-user": "admin", "admin-password": grafana})
     if not GEN.exists():

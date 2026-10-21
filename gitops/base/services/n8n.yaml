@@ -35,9 +35,9 @@ spec:
         resources:
           requests:
             cpu: 250m
-            memory: 768Mi
+            memory: 1Gi
           limits:
-            memory: 768Mi
+            memory: 1Gi
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
@@ -74,7 +74,9 @@ spec:
         - name: N8N_EDITOR_BASE_URL
           value: https://n8n.maxrommel.de/
         - name: NODE_OPTIONS
-          value: --max-old-space-size=640
+          value: --max-old-space-size=768
+        - name: N8N_MCP_SERVER_RATE_LIMIT
+          value: '1000'
         - name: GENERIC_TIMEZONE
           value: Europe/Berlin
         - name: TZ
@@ -245,6 +247,15 @@ spec:
           app.kubernetes.io/name: freellmapi
     ports:
     - port: 3001
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: platform
+      podSelector:
+        matchLabels:
+          app.kubernetes.io/name: ntfy
+    ports:
+    - port: 80
   - to:
     - ipBlock:
         cidr: 0.0.0.0/0

@@ -38,9 +38,9 @@ services:
     exposure: private
     auth: authentik
     healthcheck: /healthz
-    needs: [postgres, redis, freellmapi] # freellmapi: workflows call the AI gateway (OpenAI wire format on :3001)
+    needs: [postgres, redis, freellmapi, ntfy] # freellmapi: workflows call the AI gateway (OpenAI wire format on :3001); ntfy: workflows push notifications (write-only user n8n)
     persistence: 5Gi # TODO size
-    resources: { cpu: 250m, memory: 768Mi } # R1 limit; NODE_OPTIONS heap is 640, so 512Mi OOM-kills (found by tests/smoke)
+    resources: { cpu: 250m, memory: 1Gi } # was 768Mi: with RSS feeds and the AI digest it ran at 719 MiB; heap 768 below. 512Mi OOM-kills (found by tests/smoke)
     uid: 1000
     data_path: /home/node/.n8n
     secret_env: n8n-env # N8N_ENCRYPTION_KEY, DB_POSTGRESDB_PASSWORD (SOPS, phase 10)
@@ -56,7 +56,8 @@ services:
       N8N_HOST: n8n.maxrommel.de
       WEBHOOK_URL: https://n8n.maxrommel.de/
       N8N_EDITOR_BASE_URL: https://n8n.maxrommel.de/
-      NODE_OPTIONS: --max-old-space-size=640
+      NODE_OPTIONS: --max-old-space-size=768
+      N8N_MCP_SERVER_RATE_LIMIT: "1000" # default 100: the Aevia MCP bridge opens a session per call and hit 429 while a workflow was being built
       GENERIC_TIMEZONE: Europe/Berlin
       TZ: Europe/Berlin
       EXECUTIONS_DATA_PRUNE: "true"

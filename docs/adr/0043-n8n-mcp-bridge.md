@@ -17,7 +17,7 @@ and a way for Max's clients (claude.ai, Jarvis) to reach it: n8n itself sits beh
 
 ## Calling the AI gateway from a workflow
 Verified the same day with a four-node workflow (manual trigger, prompt, HTTP request to the gateway, answer): n8n may reach `freellmapi:3001` (egress added to the catalog entry; the gateway already admitted n8n),
-the gateway needs its key, and credentials cannot be created through the MCP tools. `scripts/n8n-gateway-credential.py` creates the credential "Aevia AI Gateway" (Header Auth) the way n8n stores it
+the gateway needs its key, and credentials cannot be created through the MCP tools. `scripts/n8n-credential.py gateway` creates the credential "Aevia AI Gateway" (Header Auth) the way n8n stores it
 (AES like CryptoJS, key from `N8N_ENCRYPTION_KEY`), shared with the owner's project; the key comes from the secret `herdr-gateway` and is not printed. A workflow attaches it with the
 `n8n_update_workflow` operation `setNodeCredential`. The MCP server's instructions carry these addresses so a client without any context (claude.ai) knows where n8n and the gateway are.
 
