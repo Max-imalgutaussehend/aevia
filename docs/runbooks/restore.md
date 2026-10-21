@@ -9,3 +9,11 @@ Needs a cluster. Not run yet (server untouched). `longevity` is excluded until r
 5. Sync `services`; open n8n and confirm a stored credential decrypts (needs the R1 `N8N_ENCRYPTION_KEY`).
 
 Rollback: delete the `data` PVC and re-sync. R1 is untouched.
+
+## Free-tier guard
+
+Backups live in Cloudflare R2 free tier (10 GB). The three backup CronJobs abort if `aevia-backups` + `aevia-archive` exceed 7 GiB; a failed Job with message `ABORT: R2 above 7 GiB` means this limit was hit.
+
+Check usage: `rclone size r2:aevia-backups` (the nightly Job logs `r2 used: <n> MiB of 10240 MiB free tier`).
+
+If the limit is reached: shorten retention or move old data to the laptop. Do not raise the limit.

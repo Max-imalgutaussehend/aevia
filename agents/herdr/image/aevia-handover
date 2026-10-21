@@ -40,7 +40,7 @@ Rules:
 
 ---
 status: done | partial | blocked
-finished: <UTC timestamp>
+finished: (the runner fills in the time)
 ---
 ## Done
 what was completed, with file names
@@ -90,6 +90,8 @@ _run() {
     printf -- '---\nstatus: blocked\nfinished: %s\n---\n## Done\nunknown\n## Not done and why\nThe agent ended without writing a result (exit code %s). See the log: aevia-handover logs %s\n## Needs the laptop\n- [ ] look at the branch and decide how to continue\n' \
       "$(date -u +%FT%TZ)" "$rc" "$slug" >".handover/$slug/RESULT.md"
   fi
+  # the model cannot know the time: the runner writes the real finish time into the result's front matter
+  sed -i "0,/^finished:.*/s//finished: $(date -u +%FT%TZ)/" ".handover/$slug/RESULT.md"
   git add -A
   git diff --cached --quiet || git commit -q -m "handover($slug): agent work and result"
   local n=0
