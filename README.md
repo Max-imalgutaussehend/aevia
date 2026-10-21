@@ -55,7 +55,7 @@ More detail with the reasoning behind each piece: [aevia.maxrommel.de](https://a
 | Delivery | Argo CD, manifests generated from one service catalog (`catalog/services.yml`), SOPS + age |
 | Edge and sign-in | Cloudflare Tunnel and Access, Authentik (OIDC for Cloudflare, Grafana, Argo CD, Forgejo, the MCP server) |
 | Data | PostgreSQL, Redis |
-| Applications | n8n, Uptime Kuma, ntfy, static websites (each in its own repo), Forgejo (git), an MCP server for claude.ai, the Jarvis voice assistant (brain) |
+| Applications | n8n, Uptime Kuma, ntfy, static websites (each in its own repo), Forgejo (git), an MCP server for claude.ai and Jarvis (cluster, vault, n8n workflow builder), the Jarvis voice assistant (brain) |
 | AI | FreeLLMAPI gateway (OpenAI and Anthropic wire formats), Herdr agent workspace |
 | Observability | Prometheus, Grafana, Loki, OpenTelemetry collector |
 | Backup | nightly PostgreSQL dump and gateway volume, encrypted before upload to Cloudflare R2 (stays inside the free tier, guarded) |
