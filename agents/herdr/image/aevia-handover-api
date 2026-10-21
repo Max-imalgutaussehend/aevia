@@ -1,0 +1,190 @@
+#!/usr/bin/env python3
+"""HTTP API in front of `aevia-handover`, so another workload in the agents namespace (Jarvis) can hand a task over to the server agent.
+
+  POST /start   {"repo": "github.com/<owner>/<name>", "slug": "...", "note": "<HANDOVER.md>", "base": "<branch, optional>"}
+                clones the repo, creates the branch handover/<slug> with .handover/<slug>/HANDOVER.md, pushes it and starts the agent
+  GET  /status/<slug>   state, times, newest commits      GET /result/<slug>   RESULT.md      GET /list
+  POST /stop/<slug>
+
+Every call needs `Authorization: Bearer $HANDOVER_API_TOKEN`; the process refuses to start without a token. Only repositories of the
+allowed owners can be handed over, the note is capped, the slug follows the runner's rule. Git credentials come from the same
+credential helper as the runner (secret herdr-git), so the API never sees a token."""
+import hmac
+import json
+import os
+import re
+import subprocess
+import sys
+import tempfile
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+
+TOKEN = os.environ.get("HANDOVER_API_TOKEN", "")
+PORT = int(os.environ.get("HANDOVER_API_PORT", "8099"))
+RUNNER = os.environ.get("HANDOVER_RUNNER", "aevia-handover")
+GIT_PREFIX = os.environ.get("HANDOVER_GIT_PREFIX", "https://")  # tests point this at local bare repositories
+ALLOWED_OWNERS = [o for o in os.environ.get("HANDOVER_ALLOWED_OWNERS", "github.com/Max-imalgutaussehend,git.maxrommel.de/akadmin").split(",") if o]
+MAX_NOTE = 100_000
+SLUG = re.compile(r"^[a-z0-9][a-z0-9-]{0,40}$")
+REPO = re.compile(r"^[a-z0-9.-]+/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
+BRANCH = re.compile(r"^[A-Za-z0-9._/-]{1,80}$")
+
+
+class Refused(Exception):
+    def __init__(self, msg, code=400):
+        super().__init__(msg)
+        self.code = code
+
+
+def run(cmd, cwd=None, timeout=300):
+    r = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, timeout=timeout, env={**os.environ, "GIT_TERMINAL_PROMPT": "0"})
+    return r.returncode, (r.stdout + r.stderr).strip()
+
+
+def check_slug(slug):
+    if not isinstance(slug, str) or not SLUG.match(slug):
+        raise Refused("slug must be lowercase letters, digits and dashes (at most 41 characters)")
+    return slug
+
+
+def check_repo(repo):
+    if not isinstance(repo, str) or not REPO.match(repo) or ".." in repo:
+        raise Refused("repo must look like github.com/<owner>/<name>")
+    if not any(repo.startswith(o + "/") for o in ALLOWED_OWNERS):
+        raise Refused("this repository may not be handed over: allowed owners are " + ", ".join(ALLOWED_OWNERS), 403)
+    return repo
+
+
+def start(body):
+    slug, repo = check_slug(body.get("slug")), check_repo(body.get("repo"))
+    note, base = body.get("note"), (body.get("base") or "").strip()
+    if not isinstance(note, str) or not note.strip():
+        raise Refused("note (the HANDOVER.md text) is required")
+    if len(note.encode()) > MAX_NOTE:
+        raise Refused("note is larger than 100 KB")
+    if base and not BRANCH.match(base):
+        raise Refused("invalid base branch")
+    url = f"{GIT_PREFIX}{repo}.git"
+    branch = f"handover/{slug}"
+    with tempfile.TemporaryDirectory() as tmp:
+        work = Path(tmp) / "repo"
+        rc, out = run(["git", "clone", "--quiet", "--depth", "1", *(["--branch", base] if base else []), url, str(work)])
+        if rc:
+            raise Refused("cannot read the repository: " + out[-300:], 502)
+        rc, out = run(["git", "ls-remote", "--heads", "origin", branch], cwd=work)
+        if out.strip():
+            raise Refused(f"branch {branch} exists already: pick another slug", 409)
+        for k, v in (("user.name", "Herdr agent"), ("user.email", "herdr-agent@users.noreply.localhost")):
+            run(["git", "config", k, v], cwd=work)
+        run(["git", "switch", "-q", "-c", branch], cwd=work)
+        d = work / ".handover" / slug
+        d.mkdir(parents=True)
+        (d / "HANDOVER.md").write_text(note if note.endswith("\n") else note + "\n")
+        run(["git", "add", ".handover"], cwd=work)
+        rc, out = run(["git", "commit", "-q", "-m", f"handover: {slug}"], cwd=work)
+        if rc:
+            raise Refused("commit failed: " + out[-300:], 500)
+        rc, out = run(["git", "push", "-q", "-u", "origin", branch], cwd=work)
+        if rc:
+            raise Refused("push failed (no write access to this repository?): " + out[-300:], 502)
+    rc, out = run([RUNNER, "start", url, branch, slug])
+    if rc:
+        raise Refused("the runner refused: " + out[-300:], 500)
+    return {"ok": True, "slug": slug, "branch": branch, "repo": repo, "message": out}
+
+
+def status(slug):
+    check_slug(slug)
+    rc, out = run([RUNNER, "status", slug])
+    if rc:
+        raise Refused(out[-200:] or "unknown handover", 404)
+    info = {}
+    for line in out.splitlines():
+        m = re.match(r"^(slug|status|started|finished|result):\s*(.*)$", line)
+        if m:
+            info[m.group(1)] = m.group(2).strip()
+    info["commits"] = [l.strip() for l in out.split("commits:", 1)[1].splitlines()[1:] if l.startswith("  ")] if "commits:" in out else []
+    return info
+
+
+def result(slug):
+    check_slug(slug)
+    rc, out = run([RUNNER, "result", slug])
+    if rc:
+        raise Refused("no result yet", 404)
+    return {"slug": slug, "result": out}
+
+
+def listing():
+    rc, out = run([RUNNER, "list"])
+    items = []
+    for line in out.splitlines():
+        parts = line.split(None, 1)
+        if parts:
+            items.append({"slug": parts[0], "status": parts[1].strip() if len(parts) > 1 else ""})
+    return {"handovers": items}
+
+
+def stop(slug):
+    check_slug(slug)
+    rc, out = run([RUNNER, "stop", slug])
+    return {"ok": rc == 0, "message": out}
+
+
+class H(BaseHTTPRequestHandler):
+    def log_message(self, *a):
+        pass
+
+    def send(self, obj, code=200):
+        body = json.dumps(obj).encode()
+        self.send_response(code)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def authorized(self):
+        h = self.headers.get("Authorization", "")
+        return bool(TOKEN) and h.startswith("Bearer ") and hmac.compare_digest(h[7:].encode(), TOKEN.encode())
+
+    def handle_any(self, method):
+        if not self.authorized():
+            return self.send({"error": "unauthorized"}, 401)
+        parts = self.path.strip("/").split("/")
+        try:
+            if method == "POST" and parts == ["start"]:
+                n = int(self.headers.get("Content-Length", 0))
+                if n > MAX_NOTE + 4096:
+                    raise Refused("request too large", 413)
+                try:
+                    body = json.loads(self.rfile.read(n) or b"{}")
+                except ValueError:
+                    raise Refused("body must be JSON")
+                return self.send(start(body))
+            if method == "GET" and parts == ["list"]:
+                return self.send(listing())
+            if method == "GET" and len(parts) == 2 and parts[0] == "status":
+                return self.send(status(parts[1]))
+            if method == "GET" and len(parts) == 2 and parts[0] == "result":
+                return self.send(result(parts[1]))
+            if method == "POST" and len(parts) == 2 and parts[0] == "stop":
+                return self.send(stop(parts[1]))
+            return self.send({"error": "not found"}, 404)
+        except Refused as e:
+            return self.send({"error": str(e)}, e.code)
+        except subprocess.TimeoutExpired:
+            return self.send({"error": "timed out"}, 504)
+        except Exception as e:  # noqa: BLE001  never drop the connection: the caller gets a readable error
+            return self.send({"error": f"{type(e).__name__}: {str(e)[:200]}"}, 500)
+
+    def do_GET(self):
+        self.handle_any("GET")
+
+    def do_POST(self):
+        self.handle_any("POST")
+
+
+if __name__ == "__main__":
+    if not TOKEN:
+        sys.exit("HANDOVER_API_TOKEN is not set: refusing to start without authentication")
+    ThreadingHTTPServer(("0.0.0.0", PORT), H).serve_forever()

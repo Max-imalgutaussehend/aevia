@@ -13,11 +13,12 @@ RUN apt-get update \
  && npm install -g @anthropic-ai/claude-code@2.1.304 && npm cache clean --force \
  && useradd --uid 10001 --create-home --home-dir /home/agent --shell /bin/bash agent
 ENV HOME=/home/agent NPM_CONFIG_PREFIX=/home/agent/.npm-global PATH=/home/agent/.npm-global/bin:/usr/local/bin:/usr/bin:/bin
-COPY aevia-handover git-credential-aevia /usr/local/bin/
-RUN chmod 0755 /usr/local/bin/aevia-handover /usr/local/bin/git-credential-aevia \
+COPY aevia-handover aevia-handover-api git-credential-aevia /usr/local/bin/
+RUN chmod 0755 /usr/local/bin/aevia-handover /usr/local/bin/aevia-handover-api /usr/local/bin/git-credential-aevia \
  && git config --system credential.helper /usr/local/bin/git-credential-aevia \
  && git config --system --add safe.directory '*'
 USER 10001:10001
 WORKDIR /workspace
 ENTRYPOINT ["/usr/bin/tini", "--"]
-CMD ["sleep", "infinity"]
+# the handover API (port 8099, needs HANDOVER_API_TOKEN) runs next to the idle shell and is restarted if it dies; without a token it stays off
+CMD ["sh", "-c", "if [ -n \"$HANDOVER_API_TOKEN\" ]; then (while true; do /usr/local/bin/aevia-handover-api; sleep 3; done) & fi; exec sleep infinity"]
