@@ -41,3 +41,10 @@ chat history); the agent answers with `.handover/<slug>/RESULT.md` (what was don
 - `acceptEdits` plus a shell allow-list is code execution inside the pod for whoever controls the repository content: hand over only your own repositories.
 - Never put secrets into `HANDOVER.md`; list where they live instead.
 - The agent's work is a proposal. Review the diff and run the verification yourself (the skill does this on the way back).
+
+## Verified (2026-10-21)
+End to end on the cluster: a note `.handover/hello/HANDOVER.md` on branch `handover/hello` of `akadmin/handover-test` (Forgejo), started with
+`aevia-handover start`, Claude Code 2.1.304 headless through the AI gateway wrote `greet.js`, `greet.test.js` and `package.json`, committed, wrote `RESULT.md`
+(status done) and pushed the branch; the diff and `npm test` (3 of 3 passing) were checked independently in the pod. The `finished:` line in that RESULT.md carried an
+invented timestamp: the runner's own `finished` file is the reliable time. Git credentials in this setup cover `git.maxrommel.de` only; GitHub repositories need a token added to `herdr-git`.
+
