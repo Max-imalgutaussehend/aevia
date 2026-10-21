@@ -28,7 +28,7 @@ spec:
         fsGroup: 1000
       containers:
       - name: jarvis
-        image: ghcr.io/max-imalgutaussehend/jarvis-brain@sha256:6535df2ee0d3b061618d92700bf27130079c3e8ff21e0fadd5f945d5f8550f47
+        image: ghcr.io/max-imalgutaussehend/jarvis-brain@sha256:8f2ef51bfbbfe71897d2dd6d748bf8c14a68beb04d8bfe981f20573138aaef9b
         ports:
         - name: http
           containerPort: 8787
