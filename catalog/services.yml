@@ -138,6 +138,7 @@ services:
     env:
       ANTHROPIC_BASE_URL: "http://freellmapi.platform.svc.cluster.local:3001"
       HOME: /data/home # Claude's session files must survive restarts for --resume
+      JARVIS_PORT: "8787" # explicit: Kubernetes injects JARVIS_PORT=tcp://... for the service named jarvis and would override the image default
       JARVIS_DATA: /data/jarvis
       JARVIS_CWD: /data/workspace
       JARVIS_PERMISSION_MODE: acceptEdits

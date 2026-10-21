@@ -55,6 +55,8 @@ spec:
           value: http://freellmapi.platform.svc.cluster.local:3001
         - name: HOME
           value: /data/home
+        - name: JARVIS_PORT
+          value: '8787'
         - name: JARVIS_DATA
           value: /data/jarvis
         - name: JARVIS_CWD
