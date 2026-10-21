@@ -115,6 +115,13 @@ def write_jarvis_mcp():
     write("mcp-internal", "apps", {"INTERNAL_TOKEN": tok})
     write("jarvis-mcp", "agents", {"AEVIA_MCP_TOKEN": tok})
 
+def write_handover_api():
+    """Token for the handover API in the Herdr pod; Jarvis (same namespace) presents it. Both read the same secret."""
+    if (OUT / "handover-api.enc.yaml").exists():
+        print("keep    handover-api.enc.yaml")
+        return
+    write("handover-api", "agents", {"HANDOVER_API_TOKEN": rnd(48)})
+
 def write_herdr_ntfy():
     """Write-only ntfy user `herdr`: the handover runner tells the operator when an agent has finished."""
     if (OUT / "herdr-ntfy.enc.yaml").exists():
@@ -151,6 +158,7 @@ def main():
     write_mcp()
     write_mcp_ntfy()
     write_jarvis_mcp()
+    write_handover_api()
     write_herdr_ntfy()
     write("grafana-admin", "observability", {"admin-user": "admin", "admin-password": grafana})
     if not GEN.exists():

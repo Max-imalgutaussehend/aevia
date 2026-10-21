@@ -55,6 +55,10 @@ spec:
           value: http://freellmapi.platform.svc.cluster.local:3001
         - name: AEVIA_MCP_URL
           value: http://mcp.apps.svc.cluster.local:8000/mcp
+        - name: HANDOVER_API_URL
+          value: http://herdr.agents.svc.cluster.local:8099
+        - name: NTFY_URL
+          value: http://ntfy.platform.svc.cluster.local:80
         - name: HOME
           value: /data/home
         - name: JARVIS_PUBLIC_URL
@@ -76,6 +80,11 @@ spec:
             name: herdr-gateway
         - secretRef:
             name: jarvis-mcp
+        - secretRef:
+            name: handover-api
+        - secretRef:
+            name: herdr-ntfy
+            optional: true
       volumes:
       - name: tmp
         emptyDir: {}
@@ -201,6 +210,15 @@ spec:
           app.kubernetes.io/name: mcp
     ports:
     - port: 8000
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: platform
+      podSelector:
+        matchLabels:
+          app.kubernetes.io/name: ntfy
+    ports:
+    - port: 80
   - to:
     - ipBlock:
         cidr: 0.0.0.0/0

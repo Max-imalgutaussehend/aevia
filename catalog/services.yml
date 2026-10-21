@@ -128,7 +128,7 @@ services:
     port: 8787
     exposure: private
     gate: access # Cloudflare Access with Authentik; the brain verifies the Access JWT itself (JARVIS_CF_TEAM / JARVIS_CF_AUD)
-    needs: [freellmapi, mcp] # Claude Code talks to the AI gateway (Anthropic wire format) and to the Aevia MCP server
+    needs: [freellmapi, mcp, ntfy] # Claude Code talks to the AI gateway (Anthropic wire format) and to the Aevia MCP server; ntfy for "background task finished"
     internet: true # Access certificate download, git over HTTPS
     persistence: 10Gi
     data_path: /data
@@ -137,9 +137,13 @@ services:
     secret_env:
       - herdr-gateway # ANTHROPIC_AUTH_TOKEN = FreeLLMAPI unified key (same secret as the Herdr workspace, same namespace)
       - jarvis-mcp # AEVIA_MCP_TOKEN, the shared internal token of the MCP server (SOPS)
+      - handover-api # HANDOVER_API_TOKEN for the handover API in the Herdr pod (SOPS)
+      - { name: herdr-ntfy, optional: true } # NTFY_USER / NTFY_PASSWORD / NTFY_TOPIC: write-only ntfy user, shared with the Herdr runner (SOPS)
     env:
       ANTHROPIC_BASE_URL: "http://freellmapi.platform.svc.cluster.local:3001"
       AEVIA_MCP_URL: "http://mcp.apps.svc.cluster.local:8000/mcp"
+      HANDOVER_API_URL: "http://herdr.agents.svc.cluster.local:8099"
+      NTFY_URL: "http://ntfy.platform.svc.cluster.local:80"
       HOME: /data/home # Claude's session files must survive restarts for --resume
       JARVIS_PUBLIC_URL: "https://jarvis.maxrommel.de" # filled into the laptop setup script
       JARVIS_PORT: "8787" # explicit: Kubernetes injects JARVIS_PORT=tcp://... for the service named jarvis and would override the image default
