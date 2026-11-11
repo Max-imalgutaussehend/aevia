@@ -8,12 +8,12 @@ purchased extra usage and not on Pro; Max has Pro. The goal is one central agent
 subscription idle work (heartbeats, scheduled jobs) uses over time.
 
 ## Decision
-- StatefulSet `hermes` in `agents` (same isolation as Herdr and Jarvis: default-deny, no databases), image `nousresearch/hermes-agent` pinned by digest, 5 Gi volume `/opt/data`, 1.5 Gi limit.
+- StatefulSet `hermes` in `agents` (same isolation as Herdr and Jarvis: default-deny, no databases), image `nousresearch/hermes-agent` pinned by digest, 5 Gi volume `/vol/h (the volume is mounted at /vol)`, 1.5 Gi limit.
 - The image's s6-overlay needs root, so the gateway (`hermes gateway run`: cron scheduler and an OpenAI-compatible API server on 8642) is started directly as PID 1 (behind tini the CLI re-enters the s6 entrypoint); Kubernetes restarts it. Zombie processes are not reaped, which the CLI warns about.
 - Config is seeded once from a ConfigMap (model `anthropic`, Aevia MCP server with the internal bearer token, local terminal backend), plus `SOUL.md` (chief of staff, German, never merges or deploys) and a skill `aevia-handover` that calls the handover API of the Herdr pod. Hermes may edit its own config afterwards.
 - Building on the server is the existing handover path (Herdr + Claude Code through the AI gateway), not a Docker sandbox: there is no Docker daemon in the cluster, and E2B is not a Hermes backend. `terminal.backend: local` runs inside the isolated pod.
 - Jarvis reaches Hermes only through the API server (NetworkPolicy, bearer key in the secret `hermes-api`). The wiring on the Jarvis side lives in the jarvis repository.
-- Tracking: the sidecar `usage-track` appends `hermes usage --json` (subscription windows) to `/opt/data/usage/usage.jsonl` every 30 minutes; `hermes insights` gives per-session tokens and cost; one-shot runs can write `--usage-file`.
+- Tracking: the sidecar `usage-track` appends `hermes usage --json` (subscription windows) to `/vol/h (the volume is mounted at /vol)/usage/usage.jsonl` every 30 minutes; `hermes insights` gives per-session tokens and cost; one-shot runs can write `--usage-file`.
 
 ## Consequences
 - The login is done by hand: `kubectl -n agents exec -it hermes-0 -- hermes model`. Two programs sharing one Claude login can invalidate each other's refresh tokens: do not copy `~/.claude` credentials into the pod.
