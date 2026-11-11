@@ -59,4 +59,5 @@ spec:
     - from:
         - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: apps } }
           podSelector: { matchLabels: { app.kubernetes.io/name: nextcloud } }
+        - podSelector: { matchLabels: { app.kubernetes.io/name: provision-nextcloud-db } } # the Job above
       ports: [{ port: 5432 }]
