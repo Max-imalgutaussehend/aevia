@@ -96,7 +96,7 @@ spec:
       containers:
         - name: hermes
           image: nousresearch/hermes-agent:v0.23.1@sha256:276d44685c65c0cb2a25f190b63c65c8906f9dc76486fb1c05ae71b5826bda08
-          command: ["/usr/bin/tini", "--", "/opt/hermes/bin/hermes"]
+          command: ["/opt/hermes/bin/hermes"] # directly as PID 1: behind tini the CLI re-enters the s6 entrypoint, which needs root
           args: ["gateway", "run"]
           env:
             - { name: API_SERVER_ENABLED, value: "true" }
@@ -117,7 +117,7 @@ spec:
           volumeMounts: [{ name: data, mountPath: /opt/data }, { name: tmp, mountPath: /tmp }]
         - name: usage-track
           image: nousresearch/hermes-agent:v0.23.1@sha256:276d44685c65c0cb2a25f190b63c65c8906f9dc76486fb1c05ae71b5826bda08
-          command: ["/usr/bin/tini", "--", "sh", "/seed/usage-track.sh"]
+          command: ["sh", "/seed/usage-track.sh"]
           env: [{ name: USAGE_INTERVAL, value: "1800" }]
           resources: { requests: { cpu: 10m, memory: 64Mi }, limits: { memory: 384Mi } }
           securityContext: { allowPrivilegeEscalation: false, capabilities: { drop: [ALL] } }
