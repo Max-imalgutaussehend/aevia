@@ -134,9 +134,24 @@ spec:
             - { secretRef: { name: jarvis-mcp } } # AEVIA_MCP_TOKEN: the MCP server's internal bearer (same secret Jarvis uses)
             - { secretRef: { name: handover-api } } # HANDOVER_API_TOKEN
             - { secretRef: { name: herdr-ntfy, optional: true } } # NTFY_USER / NTFY_PASSWORD / NTFY_TOPIC (write-only)
+            - { secretRef: { name: hermes-signal, optional: true } } # SIGNAL_HTTP_URL / SIGNAL_ACCOUNT / SIGNAL_ALLOWED_USERS / SIGNAL_HOME_CHANNEL (SOPS); switches the Signal channel on
           ports: [{ name: api, containerPort: 8642 }]
           readinessProbe: { tcpSocket: { port: api }, periodSeconds: 20, initialDelaySeconds: 30 }
           resources: { requests: { cpu: 100m, memory: 384Mi }, limits: { memory: 1536Mi } }
+          securityContext: { allowPrivilegeEscalation: false, capabilities: { drop: [ALL] } }
+          volumeMounts: [{ name: data, mountPath: /vol }, { name: tmp, mountPath: /tmp }]
+        - name: signal
+          # signal-cli (native build, community packaging) as a linked device of Max's Signal account; Hermes talks to its HTTP daemon on localhost.
+          # Idle until the device is linked (kubectl exec -i hermes-0 -c signal -- signal-cli --config /vol/h/signal link -n HermesAgent), then the daemon starts by itself.
+          image: registry.gitlab.com/packaging/signal-cli/signal-cli-native:v0-14-9-2@sha256:35dff55ddd6d7f1de970c47b5cf30662dc4066841517683917237e15c5a70102
+          command: ["sh", "-c"]
+          args:
+            - |
+              A=/vol/h/signal/data/accounts.json
+              until [ -f "$A" ] && grep -q '"number"' "$A"; do sleep 10; done
+              NUM=$(sed -n 's/.*"number": *"\([^"]*\)".*/\1/p' "$A" | head -1)
+              exec signal-cli --config /vol/h/signal --account "$NUM" daemon --http 127.0.0.1:8080
+          resources: { requests: { cpu: 20m, memory: 64Mi }, limits: { memory: 256Mi } }
           securityContext: { allowPrivilegeEscalation: false, capabilities: { drop: [ALL] } }
           volumeMounts: [{ name: data, mountPath: /vol }, { name: tmp, mountPath: /tmp }]
         - name: usage-track
@@ -146,7 +161,7 @@ spec:
             - { name: USAGE_INTERVAL, value: "1800" }
             - { name: HERMES_HOME, value: /vol/h }
             - { name: HOME, value: /vol/h }
-          resources: { requests: { cpu: 10m, memory: 64Mi }, limits: { memory: 384Mi } }
+          resources: { requests: { cpu: 10m, memory: 32Mi }, limits: { memory: 128Mi } }
           securityContext: { allowPrivilegeEscalation: false, capabilities: { drop: [ALL] } }
           volumeMounts: [{ name: data, mountPath: /vol }, { name: tmp, mountPath: /tmp }, { name: seed, mountPath: /seed, readOnly: true }]
       volumes:
