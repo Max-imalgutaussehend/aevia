@@ -21,4 +21,9 @@ subscription idle work (heartbeats, scheduled jobs) uses over time.
 - Memory: about 210 MiB idle, up to 1.5 Gi under load on a node with little headroom; the pod has the lowest priority and yields first.
 
 ## Measured 2026-11-11
-The subscription login works (Claude Pro, Anthropic OAuth token, one-shot answered). A trivial call already costs about 20,000 input tokens (system prompt plus all tool schemas of the Aevia MCP server, mostly cache writes): every heartbeat pays that, so keep scheduled jobs few and filter MCP tools (`mcp_servers.aevia.tools.include`) if heartbeats matter.
+The subscription login works (Claude Pro, Anthropic OAuth token, one-shot answered). A trivial one-shot costs about 20,000 input tokens. This is not the MCP server: Hermes loads
+MCP tools on demand (`tool_search`), the weight is its own default toolsets (21 tools, about 40 KB of schemas) plus the system prompt (10 KB). The `lazy` option of an MCP
+server only defers the connection, it does not remove schemas from the context.
+Heartbeat: job `heartbeat` (every 60 minutes, prompt "answer only ok", delivery `local`), toolsets browser, vision, image_gen, tts, computer_use, connections, delegation and
+code_execution disabled for the platform `cron` (`hermes tools disable <name> --platform cron`; this state lives in the volume, not in git). One run: 13,972 tokens, about 335,000 tokens a day,
+mostly cache reads. The tracker shows it as source `cron`. Further cuts: fewer toolsets, a longer interval, or `--no-agent` jobs (no model call at all, but then no real heartbeat).

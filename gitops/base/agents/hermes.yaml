@@ -21,6 +21,8 @@ data:
         url: "http://mcp.apps.svc.cluster.local:8000/mcp"
         headers:
           Authorization: "Bearer ${AEVIA_MCP_TOKEN}"
+        tools:
+          exclude: ["n8n_*"] # the workflow builder is for Claude Code, not for the chief of staff
   SOUL.md: |
     # Hermes, chief of staff of Max (Aevia)
 
