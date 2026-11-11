@@ -41,11 +41,14 @@ data:
     occ config:app:set files default_quota --value="${NEXTCLOUD_USER_QUOTA:-30 GB}" >/dev/null 2>&1 || true
     occ user:setting "${NEXTCLOUD_ADMIN_USER:-max}" files quota "${NEXTCLOUD_USER_QUOTA:-30 GB}" >/dev/null 2>&1 || true
     echo "nextcloud settings applied"
-  # Sidecar: Nextcloud background jobs every 5 minutes.
+  # Sidecar: wait for the install, then Nextcloud background jobs every 5 minutes, plus a rescan of the Vault folder
+  # (the vault sync writes with git, behind Nextcloud's back, so Nextcloud must be told).
   cron.sh: |
     #!/bin/sh
+    until grep -q "'installed' => true" /var/www/html/config/config.php 2>/dev/null; do sleep 10; done
     while true; do
       php -f /var/www/html/cron.php || echo "cron failed ($?)"
+      [ -d "/var/www/html/data/${NEXTCLOUD_ADMIN_USER:-max}/files/Vault" ] && php /var/www/html/occ files:scan -q --path="${NEXTCLOUD_ADMIN_USER:-max}/files/Vault" || true
       sleep 300
     done
   # Sidecar: two-way sync between the Nextcloud folder Vault and the vault repository in Forgejo (the one the MCP server writes to).
@@ -60,7 +63,7 @@ data:
     BRANCH=${VAULT_BRANCH:-main}
     export GIT_AUTHOR_NAME=Nextcloud GIT_AUTHOR_EMAIL=nextcloud@maxrommel.de GIT_COMMITTER_NAME=Nextcloud GIT_COMMITTER_EMAIL=nextcloud@maxrommel.de
     g() { git --git-dir="$GD" --work-tree="$WT" "$@"; }
-    until [ -f /var/www/html/config/config.php ] && php /var/www/html/occ status 2>/dev/null | grep -q 'installed: true'; do sleep 10; done
+    until grep -q "'installed' => true" /var/www/html/config/config.php 2>/dev/null; do sleep 10; done
     mkdir -p "$WT"
     [ -d "$GD" ] || { git init -q --bare "$GD" && g remote add origin "$VAULT_GIT_URL"; }
     g config core.quotepath false
@@ -71,14 +74,11 @@ data:
         fi
         g add -A
         g diff --cached --quiet || g commit -q -m "nextcloud: vault sync $(date -u +%FT%TZ)"
-        before=$(g rev-parse HEAD)
         g merge -q --no-edit -X ours "origin/$BRANCH" 2>>/tmp/sync.err || { g merge --abort 2>/dev/null; echo "merge failed: $(cat /tmp/sync.err)"; }
-        [ "$(g rev-parse HEAD)" = "$before" ] || php /var/www/html/occ files:scan --path="$USER_NAME/files/Vault" -q || true
         g push -q origin "HEAD:$BRANCH" 2>>/tmp/sync.err || echo "push failed: $(tail -1 /tmp/sync.err)"
       else
         echo "fetch failed: $(tail -1 /tmp/sync.err)"
       fi
-      # files written by git are not known to Nextcloud until scanned; files written by the phone are known already
       sleep "${VAULT_SYNC_SECONDS:-120}"
     done
 ---
@@ -132,13 +132,14 @@ spec:
         - name: cron
           image: nextcloud:34.0.5-apache@sha256:d8ad0b77c863611b9fab6e72a82a5d35fbcb218b660f9f20fec9941a50806281
           command: ["sh", "/scripts/cron.sh"]
+          env: [{ name: NEXTCLOUD_ADMIN_USER, value: max }]
           resources: { requests: { cpu: 20m, memory: 96Mi }, limits: { memory: 384Mi } }
           securityContext: { allowPrivilegeEscalation: false, capabilities: { drop: [ALL] } }
           volumeMounts:
             - { name: data, mountPath: /var/www/html }
             - { name: scripts, mountPath: /scripts, readOnly: true }
         - name: vault-sync
-          image: nextcloud:34.0.5-apache@sha256:d8ad0b77c863611b9fab6e72a82a5d35fbcb218b660f9f20fec9941a50806281
+          image: alpine/git:v2.54.0@sha256:6a1fdb962814ca11508ca8d1bab94375b5b7ac4e4a9a40981c29fc32c02f095d # the Nextcloud image has no git
           command: ["sh", "/scripts/vault-sync.sh"]
           env:
             - { name: NEXTCLOUD_ADMIN_USER, value: max }
