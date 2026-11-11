@@ -2,7 +2,7 @@
 # Runs the gateway (cron scheduler + OpenAI-compatible API server for Jarvis) in namespace agents: default-deny, no databases, gateway/MCP/ntfy only.
 # Model access is the Claude subscription via Hermes' own Anthropic OAuth (`hermes model` / `hermes auth add anthropic --type oauth`), done by hand once:
 #   kubectl -n agents exec -it hermes-0 -- hermes model
-# The login lives in the volume (/vol/h); no API key. A usage tracker next to it logs `hermes usage --json` (subscription windows) over time.
+# The login lives in the volume (/vol/h); no API key. A usage tracker next to it logs the session totals per source (cron, api_server, ...) over time.
 # The s6-overlay of the image needs root, so the gateway is started directly (tini as init, Kubernetes restarts it).
 apiVersion: v1
 kind: ConfigMap
@@ -50,20 +50,33 @@ data:
     3. Watch: `GET $HANDOVER_API_URL/status/<slug>`; list: `GET /list`; stop: `POST /stop/<slug>`.
     4. When done: `GET /result/<slug>` returns RESULT.md (status done|partial|blocked, decisions, what needs the laptop). Summarise it for Max and push a message
        (ntfy) with the slug; the work sits on the branch `handover/<slug>` for Max's review. Never claim it is merged or deployed.
-  usage-track.sh: |
-    #!/bin/sh
-    # Appends the subscription windows (`hermes usage --json`) to a JSONL file every USAGE_INTERVAL seconds, so heartbeats and scheduled jobs can be compared with real consumption.
-    D=/vol/h/usage; mkdir -p "$D"; F=$D/usage.jsonl
-    while true; do
-      ts=$(date -u +%FT%TZ)
-      if out=$(hermes usage --json 2>/dev/null) && [ "${out#\{}" != "$out" ]; then
-        printf '{"ts":"%s","usage":%s}\n' "$ts" "$(printf '%s' "$out" | tr -d '\n')" >>"$F"
-      else
-        printf '{"ts":"%s","error":"usage unavailable (not logged in or provider refused)"}\n' "$ts" >>"$F"
-      fi
-      [ "$(wc -c <"$F")" -gt 5242880 ] && mv "$F" "$F.1"
-      sleep "${USAGE_INTERVAL:-1800}"
-    done
+  usage-track.py: |
+    # Subscription tracking. `hermes usage` has no endpoint for the OAuth token, so this reads Hermes' own session store (state.db, read-only) every
+    # USAGE_INTERVAL seconds and appends one JSON line: totals per source (cron = scheduled jobs and heartbeats, api_server = Jarvis, oneshot, ...) for the
+    # last 24 h and for all time. Differences between lines give consumption over time. File: $HERMES_HOME/usage/usage.jsonl
+    import json, os, sqlite3, time
+    home = os.environ.get("HERMES_HOME", "/vol/h")
+    out = os.path.join(home, "usage"); os.makedirs(out, exist_ok=True)
+    f = os.path.join(out, "usage.jsonl")
+    Q = ("select source, count(*), sum(input_tokens), sum(output_tokens), sum(cache_read_tokens), sum(cache_write_tokens), "
+         "sum(coalesce(actual_cost_usd, estimated_cost_usd, 0)), sum(tool_call_count) from sessions where started_at >= ? group by source")
+    def totals(c, since):
+        keys = ("sessions", "input", "output", "cache_read", "cache_write", "cost_usd", "tool_calls")
+        return {r[0]: dict(zip(keys, [r[1], r[2] or 0, r[3] or 0, r[4] or 0, r[5] or 0, round(r[6] or 0, 4), r[7] or 0])) for r in c.execute(Q, (since,))}
+    while True:
+        line = {"ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
+        try:
+            c = sqlite3.connect("file:" + os.path.join(home, "state.db") + "?mode=ro", uri=True, timeout=10)
+            line["last_24h"] = totals(c, time.time() - 86400)
+            line["all_time"] = totals(c, 0)
+            c.close()
+        except Exception as e:
+            line["error"] = str(e)[:200]
+        with open(f, "a") as fh:
+            fh.write(json.dumps(line, separators=(",", ":")) + "\n")
+        if os.path.getsize(f) > 5 * 1024 * 1024:
+            os.replace(f, f + ".1")
+        time.sleep(int(os.environ.get("USAGE_INTERVAL", "1800")))
 ---
 apiVersion: apps/v1
 kind: StatefulSet
@@ -126,7 +139,7 @@ spec:
           volumeMounts: [{ name: data, mountPath: /vol }, { name: tmp, mountPath: /tmp }]
         - name: usage-track
           image: nousresearch/hermes-agent:v0.23.1@sha256:276d44685c65c0cb2a25f190b63c65c8906f9dc76486fb1c05ae71b5826bda08
-          command: ["sh", "/seed/usage-track.sh"]
+          command: ["/opt/hermes/.venv/bin/python", "/seed/usage-track.py"]
           env:
             - { name: USAGE_INTERVAL, value: "1800" }
             - { name: HERMES_HOME, value: /vol/h }

@@ -19,3 +19,6 @@ subscription idle work (heartbeats, scheduled jobs) uses over time.
 - The login is done by hand: `kubectl -n agents exec -it hermes-0 -- hermes model`. Two programs sharing one Claude login can invalidate each other's refresh tokens: do not copy `~/.claude` credentials into the pod.
 - If Anthropic refuses Pro on this path, fall back to the AI gateway (OpenAI wire format) or an API key; the rest stays.
 - Memory: about 210 MiB idle, up to 1.5 Gi under load on a node with little headroom; the pod has the lowest priority and yields first.
+
+## Measured 2026-11-11
+The subscription login works (Claude Pro, Anthropic OAuth token, one-shot answered). A trivial call already costs about 20,000 input tokens (system prompt plus all tool schemas of the Aevia MCP server, mostly cache writes): every heartbeat pays that, so keep scheduled jobs few and filter MCP tools (`mcp_servers.aevia.tools.include`) if heartbeats matter.
