@@ -27,7 +27,7 @@ data:
     #!/bin/sh
     set -eu
     occ() { php /var/www/html/occ "$@"; }
-    occ background:cron >/dev/null
+    occ config:app:set core backgroundjobs_mode --value=cron >/dev/null
     occ config:system:set skeletondirectory --value="" >/dev/null
     occ config:system:set default_phone_region --value=DE >/dev/null
     occ config:system:set default_timezone --value=Europe/Berlin >/dev/null
