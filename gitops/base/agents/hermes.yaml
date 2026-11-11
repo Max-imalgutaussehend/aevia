@@ -1,0 +1,212 @@
+# Hermes Agent (Nous Research, MIT): the central, always-on "chief of staff" agent (ADR 0045, beta).
+# Runs the gateway (cron scheduler + OpenAI-compatible API server for Jarvis) in namespace agents: default-deny, no databases, gateway/MCP/ntfy only.
+# Model access is the Claude subscription via Hermes' own Anthropic OAuth (`hermes model` / `hermes auth add anthropic --type oauth`), done by hand once:
+#   kubectl -n agents exec -it hermes-0 -- hermes model
+# The login lives in the volume (/opt/data); no API key. A usage tracker next to it logs `hermes usage --json` (subscription windows) over time.
+# The s6-overlay of the image needs root, so the gateway is started directly (tini as init, Kubernetes restarts it).
+apiVersion: v1
+kind: ConfigMap
+metadata: { name: hermes-seed, namespace: agents, labels: { app.kubernetes.io/name: hermes } }
+data:
+  # Seeded once (only if missing): Hermes may edit its own config afterwards; delete the file on the volume to re-seed.
+  config.yaml: |
+    model:
+      provider: anthropic
+      default: claude-sonnet-5-5
+    terminal:
+      backend: local
+      cwd: /opt/data/workspace
+    mcp_servers:
+      aevia:
+        url: "http://mcp.apps.svc.cluster.local:8000/mcp"
+        headers:
+          Authorization: "Bearer ${AEVIA_MCP_TOKEN}"
+  SOUL.md: |
+    # Hermes, chief of staff of Max (Aevia)
+
+    You are Max's central agent on the Aevia platform and run around the clock. Max studies (DHBW) and is often in lectures: be brief, plan ahead,
+    ask only when a decision is really his. Answer in German unless asked otherwise.
+
+    What you can reach: the Aevia MCP server (tools `aevia_*`, vault notes, cluster read access, metrics, logs, n8n workflows, push via ntfy)
+    and the build harness on the server (skill `aevia-handover`). You cannot change the cluster yourself: anything that builds or changes code goes
+    through a handover so a branch with a RESULT.md comes back for review. Never merge or deploy on your own.
+
+    Rules: never write secrets into notes, branches or messages; the vault folder `Privat` is not yours to read. Every recurring job you create
+    must be listed in a note (`write_note`, folder `Aevia/Hermes`) so Max can see and stop it. Keep scheduled jobs cheap: this runs on a Claude
+    subscription that is shared with Max's own work.
+  skill-aevia-handover.md: |
+    ---
+    name: aevia-handover
+    description: Hand a coding or build task to the Aevia server agent (Herdr + Claude Code) and read the result. Use for anything that must be built, changed or checked in a repository.
+    ---
+    # Handover to the server agent
+
+    The handover API runs next to the build harness. Env: `HANDOVER_API_URL`, `HANDOVER_API_TOKEN` (already set). Only repositories under
+    `github.com/Max-imalgutaussehend` and `git.maxrommel.de/akadmin` are accepted.
+
+    1. Write a self-contained note (the agent has no chat history): goal, context, files, constraints, how to verify, what is out of scope. No secrets.
+    2. Start: `curl -sS -X POST "$HANDOVER_API_URL/start" -H "Authorization: Bearer $HANDOVER_API_TOKEN" -H 'Content-Type: application/json' -d '{"repo":"github.com/Max-imalgutaussehend/<name>","slug":"<lowercase-dashes>","note":"<HANDOVER.md text>"}'`
+       (build the JSON with `jq -n --arg note "$NOTE" ...` so quoting is safe).
+    3. Watch: `GET $HANDOVER_API_URL/status/<slug>`; list: `GET /list`; stop: `POST /stop/<slug>`.
+    4. When done: `GET /result/<slug>` returns RESULT.md (status done|partial|blocked, decisions, what needs the laptop). Summarise it for Max and push a message
+       (ntfy) with the slug; the work sits on the branch `handover/<slug>` for Max's review. Never claim it is merged or deployed.
+  usage-track.sh: |
+    #!/bin/sh
+    # Appends the subscription windows (`hermes usage --json`) to a JSONL file every USAGE_INTERVAL seconds, so heartbeats and scheduled jobs can be compared with real consumption.
+    D=/opt/data/usage; mkdir -p "$D"; F=$D/usage.jsonl
+    while true; do
+      ts=$(date -u +%FT%TZ)
+      if out=$(hermes usage --json 2>/dev/null) && [ "${out#\{}" != "$out" ]; then
+        printf '{"ts":"%s","usage":%s}\n' "$ts" "$(printf '%s' "$out" | tr -d '\n')" >>"$F"
+      else
+        printf '{"ts":"%s","error":"usage unavailable (not logged in or provider refused)"}\n' "$ts" >>"$F"
+      fi
+      [ "$(wc -c <"$F")" -gt 5242880 ] && mv "$F" "$F.1"
+      sleep "${USAGE_INTERVAL:-1800}"
+    done
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata: { name: hermes, namespace: agents, labels: { app.kubernetes.io/name: hermes, app.kubernetes.io/part-of: aevia } }
+spec:
+  serviceName: hermes
+  replicas: 1
+  selector: { matchLabels: { app.kubernetes.io/name: hermes } }
+  template:
+    metadata: { labels: { app.kubernetes.io/name: hermes, app.kubernetes.io/part-of: aevia } }
+    spec:
+      serviceAccountName: agent
+      automountServiceAccountToken: false
+      priorityClassName: agents-low
+      securityContext: { runAsNonRoot: true, runAsUser: 10000, runAsGroup: 10000, fsGroup: 10000, seccompProfile: { type: RuntimeDefault } }
+      initContainers:
+        - name: seed
+          image: nousresearch/hermes-agent:v0.23.1@sha256:276d44685c65c0cb2a25f190b63c65c8906f9dc76486fb1c05ae71b5826bda08
+          command: ["sh", "-c"]
+          args:
+            - |
+              set -eu
+              mkdir -p /opt/data/workspace /opt/data/skills/aevia-handover
+              [ -f /opt/data/config.yaml ] || cp /seed/config.yaml /opt/data/config.yaml
+              [ -f /opt/data/.seeded-soul ] || { cp /seed/SOUL.md /opt/data/SOUL.md; touch /opt/data/.seeded-soul; }
+              [ -f /opt/data/skills/aevia-handover/SKILL.md ] || cp /seed/skill-aevia-handover.md /opt/data/skills/aevia-handover/SKILL.md
+          resources: { requests: { cpu: 10m, memory: 32Mi }, limits: { memory: 128Mi } }
+          securityContext: { allowPrivilegeEscalation: false, capabilities: { drop: [ALL] } }
+          volumeMounts: [{ name: data, mountPath: /opt/data }, { name: seed, mountPath: /seed, readOnly: true }]
+      containers:
+        - name: hermes
+          image: nousresearch/hermes-agent:v0.23.1@sha256:276d44685c65c0cb2a25f190b63c65c8906f9dc76486fb1c05ae71b5826bda08
+          command: ["/usr/bin/tini", "--", "/opt/hermes/bin/hermes"]
+          args: ["gateway", "run"]
+          env:
+            - { name: API_SERVER_ENABLED, value: "true" }
+            - { name: API_SERVER_HOST, value: "0.0.0.0" }
+            - { name: API_SERVER_PORT, value: "8642" }
+            - { name: HANDOVER_API_URL, value: "http://herdr.agents.svc.cluster.local:8099" }
+            - { name: NTFY_URL, value: "http://ntfy.platform.svc.cluster.local:80" }
+            - { name: TZ, value: Europe/Berlin }
+          envFrom:
+            - { secretRef: { name: hermes-api } } # API_SERVER_KEY (SOPS)
+            - { secretRef: { name: jarvis-mcp } } # AEVIA_MCP_TOKEN: the MCP server's internal bearer (same secret Jarvis uses)
+            - { secretRef: { name: handover-api } } # HANDOVER_API_TOKEN
+            - { secretRef: { name: herdr-ntfy, optional: true } } # NTFY_USER / NTFY_PASSWORD / NTFY_TOPIC (write-only)
+          ports: [{ name: api, containerPort: 8642 }]
+          readinessProbe: { tcpSocket: { port: api }, periodSeconds: 20, initialDelaySeconds: 30 }
+          resources: { requests: { cpu: 100m, memory: 384Mi }, limits: { memory: 1536Mi } }
+          securityContext: { allowPrivilegeEscalation: false, capabilities: { drop: [ALL] } }
+          volumeMounts: [{ name: data, mountPath: /opt/data }, { name: tmp, mountPath: /tmp }]
+        - name: usage-track
+          image: nousresearch/hermes-agent:v0.23.1@sha256:276d44685c65c0cb2a25f190b63c65c8906f9dc76486fb1c05ae71b5826bda08
+          command: ["/usr/bin/tini", "--", "sh", "/seed/usage-track.sh"]
+          env: [{ name: USAGE_INTERVAL, value: "1800" }]
+          resources: { requests: { cpu: 10m, memory: 64Mi }, limits: { memory: 384Mi } }
+          securityContext: { allowPrivilegeEscalation: false, capabilities: { drop: [ALL] } }
+          volumeMounts: [{ name: data, mountPath: /opt/data }, { name: tmp, mountPath: /tmp }, { name: seed, mountPath: /seed, readOnly: true }]
+      volumes:
+        - { name: tmp, emptyDir: {} }
+        - { name: seed, configMap: { name: hermes-seed, defaultMode: 0555 } }
+  volumeClaimTemplates:
+    - metadata: { name: data }
+      spec: { accessModes: [ReadWriteOnce], resources: { requests: { storage: 5Gi } } }
+---
+# API server of the gateway: the way Jarvis (and nothing else) talks to Hermes.
+apiVersion: v1
+kind: Service
+metadata: { name: hermes, namespace: agents, labels: { app.kubernetes.io/name: hermes, app.kubernetes.io/part-of: aevia } }
+spec:
+  selector: { app.kubernetes.io/name: hermes }
+  ports: [{ name: api, port: 8642, targetPort: api }]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: { name: hermes-api-from-jarvis, namespace: agents }
+spec:
+  podSelector: { matchLabels: { app.kubernetes.io/name: hermes } }
+  policyTypes: [Ingress]
+  ingress:
+    - from: [{ podSelector: { matchLabels: { app.kubernetes.io/name: jarvis } } }]
+      ports: [{ port: 8642 }]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: { name: jarvis-to-hermes, namespace: agents }
+spec:
+  podSelector: { matchLabels: { app.kubernetes.io/name: jarvis } }
+  policyTypes: [Egress]
+  egress:
+    - to: [{ podSelector: { matchLabels: { app.kubernetes.io/name: hermes } } }]
+      ports: [{ port: 8642 }]
+---
+# Hermes reaches: the Aevia MCP server, the handover API (Herdr pod), ntfy. DNS and public HTTPS (Anthropic, Telegram) come from agent-egress.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: { name: hermes-egress, namespace: agents }
+spec:
+  podSelector: { matchLabels: { app.kubernetes.io/name: hermes } }
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: apps } }
+          podSelector: { matchLabels: { app.kubernetes.io/name: mcp } }
+      ports: [{ port: 8000 }]
+    - to: [{ podSelector: { matchLabels: { app.kubernetes.io/name: herdr } } }]
+      ports: [{ port: 8099 }]
+    - to:
+        - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: platform } }
+          podSelector: { matchLabels: { app.kubernetes.io/name: ntfy } }
+      ports: [{ port: 80 }]
+---
+# The handover API accepts Hermes (it already accepts Jarvis); the bearer token is still required.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: { name: handover-api-from-hermes, namespace: agents }
+spec:
+  podSelector: { matchLabels: { app.kubernetes.io/name: herdr } }
+  policyTypes: [Ingress]
+  ingress:
+    - from: [{ podSelector: { matchLabels: { app.kubernetes.io/name: hermes } } }]
+      ports: [{ port: 8099 }]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: { name: mcp-from-hermes, namespace: apps }
+spec:
+  podSelector: { matchLabels: { app.kubernetes.io/name: mcp } }
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: agents } }
+          podSelector: { matchLabels: { app.kubernetes.io/name: hermes } }
+      ports: [{ port: 8000 }]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: { name: ntfy-from-hermes, namespace: platform }
+spec:
+  podSelector: { matchLabels: { app.kubernetes.io/name: ntfy } }
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: agents } }
+          podSelector: { matchLabels: { app.kubernetes.io/name: hermes } }
+      ports: [{ port: 80 }]
