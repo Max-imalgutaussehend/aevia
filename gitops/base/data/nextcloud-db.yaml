@@ -1,0 +1,62 @@
+# Creates the role and database for Nextcloud in the running PostgreSQL (the init script of ADR-0005 only runs on an empty volume).
+# Idempotent: it can run again at any time (it re-sets the password to the one in the SOPS secret postgres-auth).
+# Argo CD replaces the Job on every sync; if the secret key is not there yet the Job fails loudly and retries.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: provision-nextcloud-db
+  namespace: data
+  labels: { app.kubernetes.io/name: provision-nextcloud-db, app.kubernetes.io/part-of: aevia }
+  annotations:
+    argocd.argoproj.io/hook: Sync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+spec:
+  backoffLimit: 6
+  ttlSecondsAfterFinished: 3600
+  template:
+    metadata: { labels: { app.kubernetes.io/name: provision-nextcloud-db, app.kubernetes.io/part-of: aevia } }
+    spec:
+      restartPolicy: OnFailure
+      automountServiceAccountToken: false
+      securityContext: { runAsNonRoot: true, runAsUser: 70, runAsGroup: 70, seccompProfile: { type: RuntimeDefault } }
+      containers:
+        - name: psql
+          image: postgres:17.7-alpine
+          command: ["sh", "-c"]
+          args:
+            - |
+              set -eu
+              : "${POSTGRES_NEXTCLOUD_PASSWORD:?missing in secret postgres-auth}"
+              export PGHOST=postgres.data.svc.cluster.local PGUSER="$POSTGRES_USER" PGPASSWORD="$POSTGRES_PASSWORD"
+              until pg_isready -q -d postgres; do sleep 2; done
+              psql -v ON_ERROR_STOP=1 -d postgres -v pass="$POSTGRES_NEXTCLOUD_PASSWORD" <<'SQL'
+              SET log_statement = 'none';
+              SET log_min_duration_statement = -1;
+              SELECT format(CASE WHEN EXISTS (SELECT FROM pg_roles WHERE rolname = 'nextcloud')
+                THEN 'ALTER ROLE nextcloud LOGIN PASSWORD %L CONNECTION LIMIT 20'
+                ELSE 'CREATE ROLE nextcloud LOGIN PASSWORD %L CONNECTION LIMIT 20' END, :'pass') \gexec
+              SELECT 'CREATE DATABASE nextcloud OWNER nextcloud' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'nextcloud') \gexec
+              SQL
+              psql -v ON_ERROR_STOP=1 -d nextcloud <<'SQL'
+              REVOKE ALL ON DATABASE nextcloud FROM PUBLIC;
+              GRANT ALL PRIVILEGES ON DATABASE nextcloud TO nextcloud;
+              REVOKE ALL ON SCHEMA public FROM PUBLIC;
+              GRANT ALL ON SCHEMA public TO nextcloud;
+              SQL
+              echo "nextcloud database ready"
+          envFrom: [{ secretRef: { name: postgres-auth } }]
+          resources: { requests: { cpu: 20m, memory: 32Mi }, limits: { memory: 128Mi } }
+          securityContext: { allowPrivilegeEscalation: false, capabilities: { drop: [ALL] }, readOnlyRootFilesystem: true }
+---
+# Nextcloud (namespace apps) may reach PostgreSQL, like n8n.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: { name: postgres-ingress-nextcloud, namespace: data }
+spec:
+  podSelector: { matchLabels: { app.kubernetes.io/name: postgres } }
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: apps } }
+          podSelector: { matchLabels: { app.kubernetes.io/name: nextcloud } }
+      ports: [{ port: 5432 }]

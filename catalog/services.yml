@@ -216,6 +216,18 @@ services:
     needs: []
     persistence: none
 
+  - name: nextcloud
+    type: application
+    description: "Nextcloud: files, phone photo upload and the Obsidian vault (ADR 0044); hand-written manifests in gitops/base/platform/nextcloud.yaml"
+    port: 80
+    exposure: private
+    gate: access # browser login through Cloudflare Access + Authentik, then Nextcloud's own login
+    # Apps and WebDAV clients (phone, Obsidian Remotely Save, desktop sync) cannot do a browser login: Nextcloud authenticates these paths itself (app passwords, brute-force protection).
+    access_bypass: ["remote.php/*", "ocs/*", "index.php/login/v2/*", "status.php", ".well-known/*", "index.php/core/preview*", "index.php/core/preview.png*", "index.php/avatar/*", "index.php/apps/files_trashbin/preview*"]
+    managed_by: helm
+    needs: [postgres]
+    persistence: 30Gi
+
   - name: argocd
     type: platform
     namespace: argocd

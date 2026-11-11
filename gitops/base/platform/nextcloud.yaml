@@ -1,0 +1,206 @@
+# Nextcloud: files, phone photo upload and the Obsidian vault (ADR 0044). Hand-written (catalog entry `nextcloud` is managed_by: helm,
+# which only makes tofu publish the host). Namespace apps; PostgreSQL database `nextcloud` is created by gitops/base/data/nextcloud-db.yaml.
+# Secret `nextcloud-env` (SOPS): NEXTCLOUD_ADMIN_USER / NEXTCLOUD_ADMIN_PASSWORD / POSTGRES_PASSWORD.
+# Optional secret `mcp-vault-git` (hand-made, shared with the MCP server): VAULT_GIT_URL; switches the vault sync on.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: { name: nextcloud-data, namespace: apps, labels: { app.kubernetes.io/name: nextcloud } }
+spec:
+  accessModes: [ReadWriteOnce]
+  resources: { requests: { storage: 30Gi } } # local-path does not enforce this; the real limit is the node disk (80 GB) and the per-user quota below
+---
+apiVersion: v1
+kind: ConfigMap
+metadata: { name: nextcloud-scripts, namespace: apps, labels: { app.kubernetes.io/name: nextcloud } }
+data:
+  # Apache prefork defaults (150 workers) would eat the node: a single user needs a handful.
+  mpm-tune.conf: |
+    <IfModule mpm_prefork_module>
+      StartServers 2
+      MinSpareServers 2
+      MaxSpareServers 4
+      MaxRequestWorkers 12
+      MaxConnectionsPerChild 500
+    </IfModule>
+  # Runs on every start of the container (image hook), after the install is complete. Idempotent.
+  10-settings.sh: |
+    #!/bin/sh
+    set -eu
+    occ() { php /var/www/html/occ "$@"; }
+    occ background:cron >/dev/null
+    occ config:system:set skeletondirectory --value="" >/dev/null
+    occ config:system:set default_phone_region --value=DE >/dev/null
+    occ config:system:set default_timezone --value=Europe/Berlin >/dev/null
+    occ config:system:set maintenance_window_start --type=integer --value=2 >/dev/null
+    occ config:system:set trusted_proxies 0 --value=10.42.0.0/16 >/dev/null
+    occ config:system:set overwriteprotocol --value=https >/dev/null
+    occ config:system:set overwrite.cli.url --value=https://nextcloud.maxrommel.de >/dev/null
+    occ config:system:set filelocking.enabled --type=boolean --value=true >/dev/null
+    occ config:system:set memcache.local --value='\OC\Memcache\APCu' >/dev/null
+    # one user, one disk of 80 GB: stop a runaway phone upload before it fills the node
+    occ config:app:set files default_quota --value="${NEXTCLOUD_USER_QUOTA:-30 GB}" >/dev/null 2>&1 || true
+    occ user:setting "${NEXTCLOUD_ADMIN_USER:-max}" files quota "${NEXTCLOUD_USER_QUOTA:-30 GB}" >/dev/null 2>&1 || true
+    echo "nextcloud settings applied"
+  # Sidecar: Nextcloud background jobs every 5 minutes.
+  cron.sh: |
+    #!/bin/sh
+    while true; do
+      php -f /var/www/html/cron.php || echo "cron failed ($?)"
+      sleep 300
+    done
+  # Sidecar: two-way sync between the Nextcloud folder Vault and the vault repository in Forgejo (the one the MCP server writes to).
+  # Work tree = the Nextcloud folder, git dir kept outside it. Local (phone / Obsidian) edits win a conflict; Forgejo history is the undo.
+  vault-sync.sh: |
+    #!/bin/sh
+    set -u
+    [ -n "${VAULT_GIT_URL:-}" ] || { echo "vault sync off (no VAULT_GIT_URL)"; exec sleep infinity; }
+    USER_NAME=${NEXTCLOUD_ADMIN_USER:-max}
+    WT=/var/www/html/data/$USER_NAME/files/Vault
+    GD=/var/www/html/data/.vault-sync.git
+    BRANCH=${VAULT_BRANCH:-main}
+    export GIT_AUTHOR_NAME=Nextcloud GIT_AUTHOR_EMAIL=nextcloud@maxrommel.de GIT_COMMITTER_NAME=Nextcloud GIT_COMMITTER_EMAIL=nextcloud@maxrommel.de
+    g() { git --git-dir="$GD" --work-tree="$WT" "$@"; }
+    until [ -f /var/www/html/config/config.php ] && php /var/www/html/occ status 2>/dev/null | grep -q 'installed: true'; do sleep 10; done
+    mkdir -p "$WT"
+    [ -d "$GD" ] || { git init -q --bare "$GD" && g remote add origin "$VAULT_GIT_URL"; }
+    g config core.quotepath false
+    while true; do
+      if g fetch -q origin "$BRANCH" 2>/tmp/sync.err; then
+        if ! g rev-parse -q --verify HEAD >/dev/null 2>&1; then
+          if [ -z "$(ls -A "$WT" 2>/dev/null)" ]; then g checkout -q -f -B "$BRANCH" "origin/$BRANCH"; else g reset -q "origin/$BRANCH" && g checkout -q -B "$BRANCH"; fi
+        fi
+        g add -A
+        g diff --cached --quiet || g commit -q -m "nextcloud: vault sync $(date -u +%FT%TZ)"
+        before=$(g rev-parse HEAD)
+        g merge -q --no-edit -X ours "origin/$BRANCH" 2>>/tmp/sync.err || { g merge --abort 2>/dev/null; echo "merge failed: $(cat /tmp/sync.err)"; }
+        [ "$(g rev-parse HEAD)" = "$before" ] || php /var/www/html/occ files:scan --path="$USER_NAME/files/Vault" -q || true
+        g push -q origin "HEAD:$BRANCH" 2>>/tmp/sync.err || echo "push failed: $(tail -1 /tmp/sync.err)"
+      else
+        echo "fetch failed: $(tail -1 /tmp/sync.err)"
+      fi
+      # files written by git are not known to Nextcloud until scanned; files written by the phone are known already
+      sleep "${VAULT_SYNC_SECONDS:-120}"
+    done
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: nextcloud, namespace: apps, labels: { app.kubernetes.io/name: nextcloud, app.kubernetes.io/part-of: aevia } }
+spec:
+  replicas: 1
+  strategy: { type: Recreate } # RWO volume
+  selector: { matchLabels: { app.kubernetes.io/name: nextcloud } }
+  template:
+    metadata: { labels: { app.kubernetes.io/name: nextcloud, app.kubernetes.io/part-of: aevia } }
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 33
+        runAsGroup: 33
+        fsGroup: 33
+        seccompProfile: { type: RuntimeDefault }
+        sysctls: [{ name: net.ipv4.ip_unprivileged_port_start, value: "0" }] # safe sysctl: Apache may listen on :80 without root
+      containers:
+        - name: nextcloud
+          image: nextcloud:34.0.5-apache@sha256:d8ad0b77c863611b9fab6e72a82a5d35fbcb218b660f9f20fec9941a50806281
+          ports: [{ name: http, containerPort: 80 }]
+          env:
+            - { name: POSTGRES_HOST, value: postgres.data.svc.cluster.local }
+            - { name: POSTGRES_DB, value: nextcloud }
+            - { name: POSTGRES_USER, value: nextcloud }
+            - { name: NEXTCLOUD_TRUSTED_DOMAINS, value: nextcloud.maxrommel.de }
+            - { name: OVERWRITEHOST, value: nextcloud.maxrommel.de }
+            - { name: OVERWRITEPROTOCOL, value: https }
+            - { name: TRUSTED_PROXIES, value: 10.42.0.0/16 }
+            - { name: PHP_MEMORY_LIMIT, value: 512M }
+            - { name: PHP_UPLOAD_LIMIT, value: 4G }
+            - { name: APACHE_BODY_LIMIT, value: "0" }
+            - { name: TZ, value: Europe/Berlin }
+            - { name: NEXTCLOUD_USER_QUOTA, value: "30 GB" }
+          envFrom: [{ secretRef: { name: nextcloud-env } }]
+          readinessProbe: { httpGet: { path: /status.php, port: http, httpHeaders: [{ name: Host, value: nextcloud.maxrommel.de }] }, periodSeconds: 15, timeoutSeconds: 5, failureThreshold: 6 }
+          livenessProbe: { httpGet: { path: /status.php, port: http, httpHeaders: [{ name: Host, value: nextcloud.maxrommel.de }] }, periodSeconds: 30, timeoutSeconds: 10, initialDelaySeconds: 240, failureThreshold: 6 }
+          startupProbe: { httpGet: { path: /status.php, port: http, httpHeaders: [{ name: Host, value: nextcloud.maxrommel.de }] }, periodSeconds: 10, failureThreshold: 60 } # first install takes minutes
+          resources: { requests: { cpu: 100m, memory: 384Mi }, limits: { memory: 1Gi } }
+          securityContext: { allowPrivilegeEscalation: false, capabilities: { drop: [ALL] } }
+          volumeMounts:
+            - { name: data, mountPath: /var/www/html }
+            - { name: apache-run, mountPath: /var/run/apache2 }
+            - { name: apache-lock, mountPath: /var/lock/apache2 }
+            - { name: scripts, mountPath: /etc/apache2/conf-enabled/mpm-tune.conf, subPath: mpm-tune.conf, readOnly: true }
+            - { name: scripts, mountPath: /docker-entrypoint-hooks.d/before-starting/10-settings.sh, subPath: 10-settings.sh, readOnly: true }
+        - name: cron
+          image: nextcloud:34.0.5-apache@sha256:d8ad0b77c863611b9fab6e72a82a5d35fbcb218b660f9f20fec9941a50806281
+          command: ["sh", "/scripts/cron.sh"]
+          resources: { requests: { cpu: 20m, memory: 96Mi }, limits: { memory: 384Mi } }
+          securityContext: { allowPrivilegeEscalation: false, capabilities: { drop: [ALL] } }
+          volumeMounts:
+            - { name: data, mountPath: /var/www/html }
+            - { name: scripts, mountPath: /scripts, readOnly: true }
+        - name: vault-sync
+          image: nextcloud:34.0.5-apache@sha256:d8ad0b77c863611b9fab6e72a82a5d35fbcb218b660f9f20fec9941a50806281
+          command: ["sh", "/scripts/vault-sync.sh"]
+          env:
+            - { name: NEXTCLOUD_ADMIN_USER, value: max }
+            - { name: HOME, value: /tmp }
+          envFrom: [{ secretRef: { name: mcp-vault-git, optional: true } }] # VAULT_GIT_URL
+          resources: { requests: { cpu: 20m, memory: 64Mi }, limits: { memory: 256Mi } }
+          securityContext: { allowPrivilegeEscalation: false, capabilities: { drop: [ALL] } }
+          volumeMounts:
+            - { name: data, mountPath: /var/www/html }
+            - { name: scripts, mountPath: /scripts, readOnly: true }
+            - { name: tmp, mountPath: /tmp }
+      volumes:
+        - { name: data, persistentVolumeClaim: { claimName: nextcloud-data } }
+        - { name: apache-run, emptyDir: {} }
+        - { name: apache-lock, emptyDir: {} }
+        - { name: tmp, emptyDir: {} }
+        - { name: scripts, configMap: { name: nextcloud-scripts, defaultMode: 0555 } }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: nextcloud, namespace: apps, labels: { app.kubernetes.io/name: nextcloud, app.kubernetes.io/part-of: aevia } }
+spec:
+  selector: { app.kubernetes.io/name: nextcloud }
+  ports: [{ name: http, port: 80, targetPort: http }]
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: nextcloud
+  namespace: apps
+  labels: { app.kubernetes.io/name: nextcloud }
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: nextcloud.maxrommel.de
+      http: { paths: [{ path: /, pathType: Prefix, backend: { service: { name: nextcloud, port: { name: http } } } }] }
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: { name: nextcloud-ingress, namespace: apps }
+spec:
+  podSelector: { matchLabels: { app.kubernetes.io/name: nextcloud } }
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: ingress } }
+        - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: platform } }
+          podSelector: { matchLabels: { app.kubernetes.io/name: status } } # Uptime Kuma
+      ports: [{ port: 80 }]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: { name: nextcloud-egress, namespace: apps }
+spec:
+  podSelector: { matchLabels: { app.kubernetes.io/name: nextcloud } }
+  policyTypes: [Egress]
+  egress:
+    - to: [{ namespaceSelector: {}, podSelector: { matchLabels: { k8s-app: kube-dns } } }]
+      ports: [{ port: 53, protocol: UDP }, { port: 53, protocol: TCP }]
+    - to:
+        - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: data } }
+          podSelector: { matchLabels: { app.kubernetes.io/name: postgres } }
+      ports: [{ port: 5432 }]
+    - to: [{ ipBlock: { cidr: 0.0.0.0/0, except: [10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16] } }] # app store, push relay, update checks, and git over HTTPS to git.maxrommel.de for the vault sync (smart-HTTP paths bypass Access)
+      ports: [{ port: 443 }, { port: 80 }]
