@@ -203,5 +203,22 @@ spec:
         - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: data } }
           podSelector: { matchLabels: { app.kubernetes.io/name: postgres } }
       ports: [{ port: 5432 }]
-    - to: [{ ipBlock: { cidr: 0.0.0.0/0, except: [10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16] } }] # app store, push relay, update checks, and git over HTTPS to git.maxrommel.de for the vault sync (smart-HTTP paths bypass Access)
+    - to: # vault sync: the VAULT_GIT_URL of the secret mcp-vault-git points at Forgejo inside the cluster
+        - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: platform } }
+          podSelector: { matchLabels: { app.kubernetes.io/name: forgejo } }
+      ports: [{ port: 3000 }]
+    - to: [{ ipBlock: { cidr: 0.0.0.0/0, except: [10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16] } }] # app store, push relay, update checks
       ports: [{ port: 443 }, { port: 80 }]
+---
+# Forgejo accepts the vault sync from Nextcloud (it already accepts the MCP server).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: { name: forgejo-from-nextcloud, namespace: platform }
+spec:
+  podSelector: { matchLabels: { app.kubernetes.io/name: forgejo } }
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: apps } }
+          podSelector: { matchLabels: { app.kubernetes.io/name: nextcloud } }
+      ports: [{ port: 3000 }]
