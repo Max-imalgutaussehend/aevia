@@ -123,7 +123,7 @@ services:
     env: { N8N_MCP_URL: "http://n8n.apps.svc.cluster.local:5678/mcp-server/http", PUBLIC_URL: "https://mcp.maxrommel.de", OIDC_CLIENT_ID: aevia-mcp, OIDC_ISSUER: "https://authentik.maxrommel.de/application/o/aevia-mcp/", EXCLUDE_DIRS: "Privat", HOME: /home/mcp } # Privat: not readable, but writable (WRITE_EXCLUDE_DIRS is empty)
 
   - name: jarvis
-    image: ghcr.io/max-imalgutaussehend/jarvis-brain@sha256:0aad43a69e3e56ff1f50965bdd0224c5775d483b47751c4b3071c55fcd61fd6d
+    image: ghcr.io/max-imalgutaussehend/jarvis-brain@sha256:21ae4ff857a8c5a0b06b61cd6c985b90cb724bad0c148cb6593f828a712d2dbc
     type: application
     namespace: agents # Claude Code runs here with edit rights: same isolation as the Herdr workspace (gateway only, no databases)
     description: "Jarvis brain: UI, sessions and Claude Code for the voice assistant (repo jarvis, branch spike/deployment); the voice node runs on the laptop"
@@ -140,11 +140,13 @@ services:
       - herdr-gateway # ANTHROPIC_AUTH_TOKEN = FreeLLMAPI unified key (same secret as the Herdr workspace, same namespace)
       - jarvis-mcp # AEVIA_MCP_TOKEN, the shared internal token of the MCP server (SOPS)
       - handover-api # HANDOVER_API_TOKEN for the handover API in the Herdr pod (SOPS)
+      - hermes-api # HERMES_API_KEY: bearer key of Hermes' API server (tool hermes_ask), SOPS
       - { name: herdr-ntfy, optional: true } # NTFY_USER / NTFY_PASSWORD / NTFY_TOPIC: write-only ntfy user, shared with the Herdr runner (SOPS)
     env:
       ANTHROPIC_BASE_URL: "http://freellmapi.platform.svc.cluster.local:3001"
       AEVIA_MCP_URL: "http://mcp.apps.svc.cluster.local:8000/mcp"
       HANDOVER_API_URL: "http://herdr.agents.svc.cluster.local:8099"
+      HERMES_API_URL: "http://hermes.agents.svc.cluster.local:8642"
       NTFY_URL: "http://ntfy.platform.svc.cluster.local:80"
       HOME: /data/home # Claude's session files must survive restarts for --resume
       JARVIS_PUBLIC_URL: "https://jarvis.maxrommel.de" # filled into the laptop setup script

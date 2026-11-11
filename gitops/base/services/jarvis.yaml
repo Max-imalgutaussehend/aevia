@@ -28,7 +28,7 @@ spec:
         fsGroup: 1000
       containers:
       - name: jarvis
-        image: ghcr.io/max-imalgutaussehend/jarvis-brain@sha256:0aad43a69e3e56ff1f50965bdd0224c5775d483b47751c4b3071c55fcd61fd6d
+        image: ghcr.io/max-imalgutaussehend/jarvis-brain@sha256:21ae4ff857a8c5a0b06b61cd6c985b90cb724bad0c148cb6593f828a712d2dbc
         ports:
         - name: http
           containerPort: 8787
@@ -57,6 +57,8 @@ spec:
           value: http://mcp.apps.svc.cluster.local:8000/mcp
         - name: HANDOVER_API_URL
           value: http://herdr.agents.svc.cluster.local:8099
+        - name: HERMES_API_URL
+          value: http://hermes.agents.svc.cluster.local:8642
         - name: NTFY_URL
           value: http://ntfy.platform.svc.cluster.local:80
         - name: HOME
@@ -82,6 +84,8 @@ spec:
             name: jarvis-mcp
         - secretRef:
             name: handover-api
+        - secretRef:
+            name: hermes-api
         - secretRef:
             name: herdr-ntfy
             optional: true
