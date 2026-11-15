@@ -8,7 +8,7 @@
 #
 # FIELD REFERENCE
 #   type        application | platform
-#   exposure    public (reachable by anyone) | private (behind Authentik/Access)
+#   exposure    public (reachable by anyone) | private (behind Authentik/Access) | internal (cluster only: no Ingress, no host, ingress denied unless a policy next to the caller allows it)
 #   port        container port; never published on the node
 #   needs       dependencies this service may reach; everything else is denied
 #   persistence PVC size, or none
@@ -194,6 +194,22 @@ services:
     secret_env:
       - dashboard-api # DASHBOARD_API_TOKEN, shared with Hermes (SOPS)
     env: { DASHBOARD_CF_TEAM: super-hat-3be8, DASHBOARD_CF_AUD: "1c7afb57931756a9670aaa8c613a7c95ad16864c13926e92b23ed86525e33266", DASHBOARD_DATA: /data, PORT: "8080", TZ: Europe/Berlin }
+
+  - name: google-mcp
+    type: application
+    description: "Gmail + Google Calendar MCP server for Hermes (repo google-mcp, wraps workspace-mcp 2.3.0); cluster-internal only"
+    port: 8000
+    exposure: internal # no Ingress and no host: the MCP endpoint has no login of its own, only the Hermes pod may call it (policy in gitops/base/agents/hermes.yaml)
+    hold: "waiting for the google-mcp repo to be pushed and its image digest pinned (docs/runbooks/hermes-google.md)"
+    needs: []
+    internet: true # gmail.googleapis.com, oauth2.googleapis.com, www.googleapis.com
+    persistence: 1Gi # OAuth refresh token (/data/credentials)
+    data_path: /data
+    uid: 10003
+    resources: { cpu: 50m, memory: 256Mi }
+    healthcheck: /health
+    secret_env:
+      - google-mcp-env # GOOGLE_OAUTH_CLIENT_ID/SECRET, USER_GOOGLE_EMAIL, GOOGLE_OAUTH_REDIRECT_URI (SOPS)
 
   - name: longevity
     type: application
