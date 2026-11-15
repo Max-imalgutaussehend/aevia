@@ -193,7 +193,7 @@ services:
     healthcheck: /healthz
     secret_env:
       - dashboard-api # DASHBOARD_API_TOKEN, shared with Hermes (SOPS)
-    env: { DASHBOARD_CF_TEAM: super-hat-3be8, DASHBOARD_CF_AUD: "TODO-after-first-tofu-apply", DASHBOARD_DATA: /data, PORT: "8080", TZ: Europe/Berlin }
+    env: { DASHBOARD_CF_TEAM: super-hat-3be8, DASHBOARD_CF_AUD: "1c7afb57931756a9670aaa8c613a7c95ad16864c13926e92b23ed86525e33266", DASHBOARD_DATA: /data, PORT: "8080", TZ: Europe/Berlin }
 
   - name: longevity
     type: application

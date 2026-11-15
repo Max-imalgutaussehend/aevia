@@ -54,7 +54,7 @@ spec:
         - name: DASHBOARD_CF_TEAM
           value: super-hat-3be8
         - name: DASHBOARD_CF_AUD
-          value: TODO-after-first-tofu-apply
+          value: 1c7afb57931756a9670aaa8c613a7c95ad16864c13926e92b23ed86525e33266
         - name: DASHBOARD_DATA
           value: /data
         - name: PORT
