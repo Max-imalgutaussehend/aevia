@@ -86,6 +86,9 @@ data:
     ---
     # Reaching Max
 
+    NOTE: the phone line (callme) is NOT set up: the Twilio trial account has no credit and Max does not pay for calls. If the tools `initiate_call` and `call_budget`
+    do not exist, step 3 below is replaced by the free fallback at the end of this skill. Do not try to work around it.
+
     Ladder, one step at a time, never skipping upward without waiting:
     0. Before any call run the tool `call_budget`: it shows the remaining Twilio credit, calls left today and minutes left. The credit is a free trial and must never run out unnoticed:
        below 5 USD tell Max once (ntfy), below 2 USD the tool refuses to call by itself, so fall back to ntfy and say so.
@@ -107,6 +110,9 @@ data:
     On the call: the first sentence says who you are and what it is about, in at most 15 seconds, in German. Ask one yes/no or either/or question at a time. Repeat the answer back,
     then `end_call` with a short goodbye. Never read secrets or long lists aloud. The tool blocks until Max has answered, so make the call the last step of a job.
     Afterwards: put the outcome into the dashboard (callout) and a line into your note in `Aevia/Hermes`.
+
+    Free fallback (no phone line): after the 20-minute ntfy, wait 15 more minutes, then send one more ntfy with priority 5 (title "Dringend: Antwort nötig") and repeat the Signal message once.
+    Then remind at most twice more, 30 minutes apart, and stop (never between 22:00 and 07:30). Write what is still open into the dashboard callout so Max sees it first when he opens it.
   merge-config.py: |
     # Idempotent, standard library only (the image has no PyYAML): adds the callme MCP server to config.yaml when it is missing.
     # The seed config is only copied once and Hermes may have edited its own, so this inserts text under the top-level `mcp_servers:` key.
@@ -168,7 +174,7 @@ spec:
   replicas: 1
   selector: { matchLabels: { app.kubernetes.io/name: hermes } }
   template:
-    metadata: { labels: { app.kubernetes.io/name: hermes, app.kubernetes.io/part-of: aevia }, annotations: { aevia/seed-rev: "2" } } # bump to re-run the init step (seed, skills, config merge)
+    metadata: { labels: { app.kubernetes.io/name: hermes, app.kubernetes.io/part-of: aevia }, annotations: { aevia/seed-rev: "3" } } # bump to re-run the init step (seed, skills, config merge)
     spec:
       serviceAccountName: agent
       automountServiceAccountToken: false
@@ -191,8 +197,13 @@ spec:
               [ -f /vol/h/config.yaml ] || cp /seed/config.yaml /vol/h/config.yaml
               [ -f /vol/h/.seeded-soul ] || { cp /seed/SOUL.md /vol/h/SOUL.md; touch /vol/h/.seeded-soul; }
               [ -f /vol/h/skills/aevia-handover/SKILL.md ] || cp /seed/skill-aevia-handover.md /vol/h/skills/aevia-handover/SKILL.md
-              [ -f /vol/h/skills/dashboard/SKILL.md ] || cp /seed/skill-dashboard.md /vol/h/skills/dashboard/SKILL.md
-              [ -f /vol/h/skills/call-escalation/SKILL.md ] || cp /seed/skill-call-escalation.md /vol/h/skills/call-escalation/SKILL.md
+              # skills dashboard + call-escalation are maintained in git: refreshed whenever SKILLS_REV changes
+              SKILLS_REV=3
+              if [ "$(cat /vol/h/.skills-rev 2>/dev/null)" != "$SKILLS_REV" ]; then
+                cp /seed/skill-dashboard.md /vol/h/skills/dashboard/SKILL.md
+                cp /seed/skill-call-escalation.md /vol/h/skills/call-escalation/SKILL.md
+                echo "$SKILLS_REV" > /vol/h/.skills-rev
+              fi
               /opt/hermes/.venv/bin/python /seed/merge-config.py /vol/h/config.yaml || echo 'config merge skipped'
           resources: { requests: { cpu: 10m, memory: 32Mi }, limits: { memory: 128Mi } }
           securityContext: { allowPrivilegeEscalation: false, capabilities: { drop: [ALL] } }
