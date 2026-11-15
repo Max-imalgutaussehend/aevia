@@ -1,6 +1,6 @@
 # 0046 Hermes can phone Max, and keeps a personal dashboard
 
-Date: 2026-11-15. Status: built, held in the catalog until the setup in `docs/runbooks/hermes-calls-dashboard.md` is done.
+Date: 2026-11-15. Status: dashboard live (2026-11-15). callme is built and tested but held: the Twilio trial account has 0.00 USD credit and no free route exists, so there is no phone line.
 
 ## Context
 Hermes (ADR 0045) reaches Max over Signal and ntfy. When he does not answer, it has no stronger channel. Max also wants one page (iPhone, Mac, Framework) that Hermes keeps up to date:
@@ -23,7 +23,8 @@ reminders, todos, trackers, financials.
 - Both services are `hold`ed in `catalog/services.yml`: the generator emits nothing and tofu publishes nothing until the image digest and the SOPS secrets exist.
 
 ## Consequences
-- Goal: pay nothing. A Twilio trial account runs on free credit and, as far as I know, cannot be charged as long as no card is added or the account upgraded: calls then simply stop when the credit is gone. Native-mode speech (Gather, Say) is billed from that credit. The trial announcement plays before each call and Max has to press a key; calls go only to verified numbers.
+- Finding 2026-11-15: the Twilio console shows "Trial balance: $0.00" and "Days left in trial: 30"; the billing and verified-numbers pages redirect to "Upgrade". Without funds no call can be placed, so callme stays held and Hermes escalates with Signal and ntfy (priority 5) only.
+- Original goal: pay nothing. A Twilio trial account runs on free credit and, as far as I know, cannot be charged as long as no card is added or the account upgraded: calls then simply stop when the credit is gone. Native-mode speech (Gather, Say) is billed from that credit. The trial announcement plays before each call and Max has to press a key; calls go only to verified numbers.
 - The Twilio speech quality (voice `alice`, recognition default model) is plainer than OpenAI's; `CALLME_VOICE` can be changed.
 - The Hermes seed config is only copied once; an init step merges the `callme` MCP server into an existing `config.yaml`, and the two new skills are copied if missing.
 - Financial data on the dashboard is only what Max or his notes provide; Hermes does not read bank accounts.

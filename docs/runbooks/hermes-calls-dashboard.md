@@ -3,7 +3,10 @@
 Both services sit in `catalog/services.yml` with a `hold:` line. Nothing is deployed until you finish this list. Code: `~/Documents/coding-projects/callme` and `~/Documents/coding-projects/dashboard`
 (local git repos, nothing pushed).
 
-## 1. Twilio trial (callme), no payment
+## 1. Twilio (callme): ON HOLD, needs paid funds
+Checked 2026-11-15: the trial account shows 0.00 USD credit and the billing/verified-number pages demand an upgrade. Only continue if you decide to fund an account; the dashboard does not need any of this.
+
+### Original plan (trial, no payment)
 Free start, nothing to pay: do not add a card and do not upgrade, then calls just stop when the trial credit is used up (check the current trial terms yourself).
 1. Create a Twilio account, verify your mobile number (it is the only number the trial can call).
 2. Get the trial phone number (Console, Phone Numbers). Voice > Geo permissions: allow Germany if it is not on.

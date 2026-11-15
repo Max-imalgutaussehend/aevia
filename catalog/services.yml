@@ -163,7 +163,7 @@ services:
     description: "Phone calls for Hermes: Aevia fork of ZeframLou/call-me (repo callme), native Twilio mode (Twilio speech, no OpenAI), HTTP MCP on /mcp plus the Twilio webhooks"
     port: 3333
     exposure: public # Twilio must reach /native/*; every webhook is signature-checked, /mcp needs the bearer token
-    hold: "setup pending (docs/runbooks/hermes-calls-dashboard.md): create the SOPS secrets callme-env + callme-mcp, then remove this line and run tofu apply (host callme.maxrommel.de)"
+    hold: "no phone line: the Twilio trial account has 0.00 USD credit (checked 2026-11-15) and calls need paid funds, which Max does not want. Image and code are ready; to switch on: fund a Twilio account, run scripts/callme-env.sh, remove this line, tofu apply (docs/runbooks/hermes-calls-dashboard.md)"
     needs: []
     internet: true # api.twilio.com over HTTPS
     persistence: 1Gi # budget.json: the daily call limit must survive restarts
