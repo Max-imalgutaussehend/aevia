@@ -8,7 +8,7 @@ provider "cloudflare" {
 
 locals {
   catalog  = yamldecode(file("${path.root}/../../../../catalog/services.yml"))
-  services = { for s in local.catalog.services : s.name => { exposure = s.exposure, apex = try(s.apex, false), aliases = try(s.aliases, []), gate = try(s.gate, ""), access_bypass = try(s.access_bypass, []), access_ip_bypass = try(s.access_ip_bypass, []) } if try(s.hold, "") == "" }
+  services = { for s in local.catalog.services : s.name => { exposure = s.exposure, apex = try(s.apex, false), aliases = try(s.aliases, []), gate = try(s.gate, ""), access_bypass = try(s.access_bypass, []), access_ip_bypass = try(s.access_ip_bypass, []), access_session = try(s.access_session, "24h") } if try(s.hold, "") == "" }
 }
 
 module "hetzner" {

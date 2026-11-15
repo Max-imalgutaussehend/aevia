@@ -157,6 +157,44 @@ services:
       JARVIS_CF_TEAM: super-hat-3be8
       JARVIS_CF_AUD: "dd250583fa78b205802bc3e1aeaaf522d697bec71861dffc158915b5754ddb12" # audience tag of the Access application (public, not a secret)
 
+  - name: callme
+    image: ghcr.io/max-imalgutaussehend/callme@sha256:eaa6a7eb580ca78f09d17bf1bf33a7c449f35d92af495e0ecabe173a89382471
+    type: application
+    description: "Phone calls for Hermes: Aevia fork of ZeframLou/call-me (repo callme), native Twilio mode (Twilio speech, no OpenAI), HTTP MCP on /mcp plus the Twilio webhooks"
+    port: 3333
+    exposure: public # Twilio must reach /native/*; every webhook is signature-checked, /mcp needs the bearer token
+    hold: "setup pending (docs/runbooks/hermes-calls-dashboard.md): create the SOPS secrets callme-env + callme-mcp, then remove this line and run tofu apply (host callme.maxrommel.de)"
+    needs: []
+    internet: true # api.twilio.com over HTTPS
+    persistence: 1Gi # budget.json: the daily call limit must survive restarts
+    data_path: /data
+    uid: 10001
+    resources: { cpu: 50m, memory: 192Mi }
+    healthcheck: /health
+    secret_env:
+      - callme-env # CALLME_PHONE_ACCOUNT_SID, CALLME_PHONE_AUTH_TOKEN, CALLME_PHONE_NUMBER, CALLME_USER_PHONE_NUMBER (SOPS)
+      - callme-mcp # CALLME_MCP_TOKEN, shared with Hermes (SOPS)
+    env: { CALLME_PUBLIC_URL: "https://callme.maxrommel.de", CALLME_MODE: native, CALLME_PORT: "3333", CALLME_LANGUAGE: de-DE, CALLME_MAX_TOTAL_MINUTES: "30", CALLME_MIN_BALANCE_USD: "2", CALLME_DATA_DIR: /data, CALLME_MAX_CALLS_PER_DAY: "3", CALLME_MAX_CALL_MINUTES: "5", HOME: /tmp }
+
+  - name: dashboard
+    image: ghcr.io/max-imalgutaussehend/dashboard@sha256:0fa9dfc6d93cd4d2ff33fc23696b517b9edb7b98d139ca08b07a0a3d1bf9c608
+    type: application
+    description: "Personal dashboard: spec-driven generative UI that Hermes keeps up to date (repo dashboard)"
+    port: 8080
+    exposure: private
+    gate: access # Cloudflare Access with Authentik; the app verifies the Access JWT itself
+    access_session: 720h # one login a month per device (iPhone, Mac, Framework)
+    needs: []
+    internet: true # downloads the Access signing keys (certs) from Cloudflare
+    persistence: 1Gi
+    data_path: /data
+    uid: 10002
+    resources: { cpu: 25m, memory: 96Mi }
+    healthcheck: /healthz
+    secret_env:
+      - dashboard-api # DASHBOARD_API_TOKEN, shared with Hermes (SOPS)
+    env: { DASHBOARD_CF_TEAM: super-hat-3be8, DASHBOARD_CF_AUD: "TODO-after-first-tofu-apply", DASHBOARD_DATA: /data, PORT: "8080", TZ: Europe/Berlin }
+
   - name: longevity
     type: application
     description: "LONGEVITY — Health Score Platform (DHBW MVP)"

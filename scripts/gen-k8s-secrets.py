@@ -125,6 +125,22 @@ def write_herdr_ntfy():
         return
     write("herdr-ntfy", "agents", {"NTFY_USER": "herdr", "NTFY_PASSWORD": rnd(32), "NTFY_TOPIC": "aevia"})
 
+def write_call_dashboard():
+    """Shared bearer tokens of ADR 0046. callme-mcp / dashboard-api live in apps (the services check them), hermes-callme / hermes-dashboard in agents (Hermes presents them).
+    callme-env (Twilio credentials) is NOT generated here: it comes from the Twilio console, see docs/runbooks/hermes-calls-dashboard.md."""
+    if (OUT / "callme-mcp.enc.yaml").exists():
+        print("keep    callme-mcp.enc.yaml")
+    else:
+        tok = rnd(48)
+        write("callme-mcp", "apps", {"CALLME_MCP_TOKEN": tok})
+        write("hermes-callme", "agents", {"CALLME_MCP_TOKEN": tok})
+    if (OUT / "dashboard-api.enc.yaml").exists():
+        print("keep    dashboard-api.enc.yaml")
+    else:
+        tok = rnd(48)
+        write("dashboard-api", "apps", {"DASHBOARD_API_TOKEN": tok})
+        write("hermes-dashboard", "agents", {"DASHBOARD_API_TOKEN": tok})
+
 def main():
     # The n8n key came from the retired R1 server (.env); it is only needed while n8n-env does not exist yet.
     n8n_key = "" if (OUT / "n8n-env.enc.yaml").exists() else read_env(REPO / ".env", "N8N_ENCRYPTION_KEY")
@@ -160,4 +176,4 @@ def main():
         print(f"login values saved to {GEN} (600)")
 
 if __name__ == "__main__":
-    main()
+    write_call_dashboard() if sys.argv[1:] == ["call-dashboard"] else main()

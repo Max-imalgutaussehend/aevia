@@ -35,6 +35,7 @@ variable "services" {
     apex     = optional(bool, false)
     access_ip_bypass = optional(list(string), []) # CIDRs that skip the login for this host (e.g. Anthropic's outbound range for an MCP server that has its own OAuth)
     access_bypass = optional(list(string), []) # path patterns of a gated host that skip the browser login (e.g. git smart-HTTP); the app must authenticate itself
+    access_session = optional(string, "24h") # how long a browser login stays valid for this host (e.g. "720h" for the personal dashboard)
     gate     = optional(string, "") # "access" = Cloudflare Access app (var.access_emails) is created before the DNS record
     aliases  = optional(list(string), []) # extra subdomains routed through the tunnel; their DNS records are managed elsewhere
   }))

@@ -23,6 +23,11 @@ data:
           Authorization: "Bearer ${AEVIA_MCP_TOKEN}"
         tools:
           exclude: ["n8n_*"] # the workflow builder is for Claude Code, not for the chief of staff
+      callme:
+        url: "http://callme.apps.svc.cluster.local:3333/mcp"
+        headers:
+          Authorization: "Bearer ${CALLME_MCP_TOKEN}"
+        timeout: 600 # initiate_call blocks for the whole phone call
   SOUL.md: |
     # Hermes, chief of staff of Max (Aevia)
 
@@ -52,6 +57,66 @@ data:
     3. Watch: `GET $HANDOVER_API_URL/status/<slug>`; list: `GET /list`; stop: `POST /stop/<slug>`.
     4. When done: `GET /result/<slug>` returns RESULT.md (status done|partial|blocked, decisions, what needs the laptop). Summarise it for Max and push a message
        (ntfy) with the slug; the work sits on the branch `handover/<slug>` for Max's review. Never claim it is merged or deployed.
+  skill-dashboard.md: |
+    ---
+    name: dashboard
+    description: Keep Max's personal dashboard (dashboard.maxrommel.de) up to date: todos, reminders, trackers, financials, a short daily briefing. Use for every scheduled refresh and whenever Max tells you something that belongs on it.
+    ---
+    # Dashboard
+
+    The page renders a JSON state from a closed set of widgets; you only change data, never code or HTML. Env: `DASHBOARD_API_URL`, `DASHBOARD_API_TOKEN` (already set).
+    Read the vocabulary first if unsure: `curl -sS $DASHBOARD_API_URL/api/schema -H "Authorization: Bearer $DASHBOARD_API_TOKEN"`.
+
+    - Read: `GET /api/state`. Max ticks todos and reminders off on the page himself: `done: true` is his answer, respect it, never reopen an item.
+    - Replace the whole page: `PUT /api/state` (a `422` lists what to fix). Change one widget: `PUT /api/widgets/<id>` with the full widget (new ids are appended; `?after=<id>` places them).
+      Remove: `DELETE /api/widgets/<id>`. Title, subtitle, briefing only: `PATCH /api/meta`. Build JSON with `jq -n` so quoting is safe.
+    - Types: callout, stat, todo, reminders, tracker, chart (line|bar), budget, accounts, progress, agenda, list, text. Group widgets with the same `section`. The array order is the page order.
+    - The server keeps the last 50 versions, so a bad edit is recoverable, but do not rely on it.
+
+    Rules
+    1. `briefing` is two or three sentences in German: what matters today, what is open, nothing else. Put the one thing that needs a decision into a `callout` (tone `warn`/`urgent` only when it really is).
+    2. Numbers come only from Max, his notes (vault, never `Privat`) or tools you can name. Never invent or extrapolate a value; say where it came from in the widget `note` (for example "laut Notiz Finanzen/November").
+    3. Do not delete todos Max created. Add, update due dates, mark `done` only when he told you it is done. Move finished ones out after a week.
+    4. Keep it calm: at most about 15 widgets, charts only with at least 5 points, no widget without data. If a source is missing, leave the widget out instead of showing zeros.
+    5. A scheduled run that finds nothing new changes nothing (no write, no tokens spent on rewriting).
+  skill-call-escalation.md: |
+    ---
+    name: call-escalation
+    description: How and when to reach Max when he does not answer: Signal, then ntfy, then a phone call (tool `initiate_call` of the callme MCP server). Use whenever you wait for a decision that is time-critical.
+    ---
+    # Reaching Max
+
+    Ladder, one step at a time, never skipping upward without waiting:
+    0. Before any call run the tool `call_budget`: it shows the remaining Twilio credit, calls left today and minutes left. The credit is a free trial and must never run out unnoticed:
+       below 5 USD tell Max once (ntfy), below 2 USD the tool refuses to call by itself, so fall back to ntfy and say so.
+    1. Signal message (your normal channel). State the question so that a one-word answer works.
+    2. No answer after 20 minutes: ntfy push with high priority (`ntfy_send` of the aevia MCP server), same question in one sentence.
+    3. No answer after another 15 minutes AND the matter cannot wait until Max is reachable again AND a decision has a deadline within the next hours: call with `initiate_call`.
+    Create the follow-up checks as one-shot jobs (`hermes cron`), and cancel them as soon as any answer arrives (on any channel).
+
+    Do not call when
+    - it is between 22:00 and 07:30 (Europe/Berlin), unless Max told you to call him for this exact thing,
+    - Max is in a lecture or exam according to the calendar or the vault (he mutes on purpose),
+    - the matter is informational, or you could decide it yourself within the rules in SOUL.md,
+    - `initiate_call` answers with a limit (3 calls per 24 h, 5 minutes each, 30 minutes in total, credit floor): fall back to ntfy and say so in the dashboard callout.
+    - the answer to a turn is `(Max hat nichts gesagt)` twice in a row: say goodbye with `end_call` and fall back to Signal.
+
+    The line is a Twilio trial: Max hears a short trial announcement and has to press a key before you can speak, so only call when he can pick up. The call is cut after 5 minutes.
+    While you think or use tools the line is silent: use `speak_to_user` ("Einen Moment.") before anything that takes longer than a few seconds.
+
+    On the call: the first sentence says who you are and what it is about, in at most 15 seconds, in German. Ask one yes/no or either/or question at a time. Repeat the answer back,
+    then `end_call` with a short goodbye. Never read secrets or long lists aloud. The tool blocks until Max has answered, so make the call the last step of a job.
+    Afterwards: put the outcome into the dashboard (callout) and a line into your note in `Aevia/Hermes`.
+  merge-config.py: |
+    # Idempotent: adds the callme MCP server to config.yaml when it is missing (the seed config is only copied once, Hermes may have edited its own).
+    import sys, yaml
+    p = sys.argv[1]
+    c = yaml.safe_load(open(p)) or {}
+    s = c.setdefault('mcp_servers', {})
+    if 'callme' not in s:
+        s['callme'] = {'url': 'http://callme.apps.svc.cluster.local:3333/mcp', 'headers': {'Authorization': 'Bearer ${CALLME_MCP_TOKEN}'}, 'timeout': 600}
+        yaml.safe_dump(c, open(p, 'w'), sort_keys=False, allow_unicode=True)
+        print('callme MCP server added')
   usage-track.py: |
     # Subscription tracking. `hermes usage` has no endpoint for the OAuth token, so this reads Hermes' own session store (state.db, read-only) every
     # USAGE_INTERVAL seconds and appends one JSON line: totals per source (cron = scheduled jobs and heartbeats, api_server = Jarvis, oneshot, ...) for the
@@ -107,10 +172,13 @@ spec:
                 mkdir /vol/h
                 for f in /vol/* /vol/.[!.]*; do [ -e "$f" ] && [ "$f" != /vol/h ] && [ "$(basename "$f")" != lost+found ] && mv "$f" /vol/h/ || true; done
               fi
-              mkdir -p /vol/h/workspace /vol/h/skills/aevia-handover
+              mkdir -p /vol/h/workspace /vol/h/skills/aevia-handover /vol/h/skills/dashboard /vol/h/skills/call-escalation
               [ -f /vol/h/config.yaml ] || cp /seed/config.yaml /vol/h/config.yaml
               [ -f /vol/h/.seeded-soul ] || { cp /seed/SOUL.md /vol/h/SOUL.md; touch /vol/h/.seeded-soul; }
               [ -f /vol/h/skills/aevia-handover/SKILL.md ] || cp /seed/skill-aevia-handover.md /vol/h/skills/aevia-handover/SKILL.md
+              [ -f /vol/h/skills/dashboard/SKILL.md ] || cp /seed/skill-dashboard.md /vol/h/skills/dashboard/SKILL.md
+              [ -f /vol/h/skills/call-escalation/SKILL.md ] || cp /seed/skill-call-escalation.md /vol/h/skills/call-escalation/SKILL.md
+              /opt/hermes/.venv/bin/python /seed/merge-config.py /vol/h/config.yaml || echo 'config merge skipped'
           resources: { requests: { cpu: 10m, memory: 32Mi }, limits: { memory: 128Mi } }
           securityContext: { allowPrivilegeEscalation: false, capabilities: { drop: [ALL] } }
           volumeMounts: [{ name: data, mountPath: /vol }, { name: seed, mountPath: /seed, readOnly: true }]
@@ -128,12 +196,15 @@ spec:
             - { name: API_SERVER_PORT, value: "8642" }
             - { name: HANDOVER_API_URL, value: "http://herdr.agents.svc.cluster.local:8099" }
             - { name: NTFY_URL, value: "http://ntfy.platform.svc.cluster.local:80" }
+            - { name: DASHBOARD_API_URL, value: "http://dashboard.apps.svc.cluster.local:8080" }
             - { name: TZ, value: Europe/Berlin }
           envFrom:
             - { secretRef: { name: hermes-api } } # API_SERVER_KEY (SOPS)
             - { secretRef: { name: jarvis-mcp } } # AEVIA_MCP_TOKEN: the MCP server's internal bearer (same secret Jarvis uses)
             - { secretRef: { name: handover-api } } # HANDOVER_API_TOKEN
             - { secretRef: { name: herdr-ntfy, optional: true } } # NTFY_USER / NTFY_PASSWORD / NTFY_TOPIC (write-only)
+            - { secretRef: { name: hermes-dashboard, optional: true } } # DASHBOARD_API_TOKEN (SOPS), same value as dashboard-api in apps
+            - { secretRef: { name: hermes-callme, optional: true } } # CALLME_MCP_TOKEN (SOPS), same value as callme-mcp in apps; not the Twilio credentials
             - { secretRef: { name: hermes-signal, optional: true } } # SIGNAL_HTTP_URL / SIGNAL_ACCOUNT / SIGNAL_ALLOWED_USERS / SIGNAL_HOME_CHANNEL (SOPS); switches the Signal channel on
           ports: [{ name: api, containerPort: 8642 }]
           readinessProbe: { tcpSocket: { port: api }, periodSeconds: 20, initialDelaySeconds: 30 }
@@ -199,7 +270,7 @@ spec:
     - to: [{ podSelector: { matchLabels: { app.kubernetes.io/name: hermes } } }]
       ports: [{ port: 8642 }]
 ---
-# Hermes reaches: the Aevia MCP server, the handover API (Herdr pod), ntfy. DNS and public HTTPS (Anthropic, Telegram) come from agent-egress.
+# Hermes reaches: the Aevia MCP server, the handover API (Herdr pod), the dashboard API, the callme MCP endpoint, ntfy. DNS and public HTTPS (Anthropic, Telegram) come from agent-egress.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata: { name: hermes-egress, namespace: agents }
@@ -213,6 +284,14 @@ spec:
       ports: [{ port: 8000 }]
     - to: [{ podSelector: { matchLabels: { app.kubernetes.io/name: herdr } } }]
       ports: [{ port: 8099 }]
+    - to:
+        - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: apps } }
+          podSelector: { matchLabels: { app.kubernetes.io/name: dashboard } }
+      ports: [{ port: 8080 }]
+    - to:
+        - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: apps } }
+          podSelector: { matchLabels: { app.kubernetes.io/name: callme } }
+      ports: [{ port: 3333 }]
     - to:
         - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: platform } }
           podSelector: { matchLabels: { app.kubernetes.io/name: ntfy } }
@@ -252,3 +331,28 @@ spec:
         - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: agents } }
           podSelector: { matchLabels: { app.kubernetes.io/name: hermes } }
       ports: [{ port: 80 }]
+---
+# Hermes may write the dashboard and ask callme to phone Max (bearer tokens still required on both).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: { name: dashboard-from-hermes, namespace: apps }
+spec:
+  podSelector: { matchLabels: { app.kubernetes.io/name: dashboard } }
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: agents } }
+          podSelector: { matchLabels: { app.kubernetes.io/name: hermes } }
+      ports: [{ port: 8080 }]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: { name: callme-from-hermes, namespace: apps }
+spec:
+  podSelector: { matchLabels: { app.kubernetes.io/name: callme } }
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: agents } }
+          podSelector: { matchLabels: { app.kubernetes.io/name: hermes } }
+      ports: [{ port: 3333 }]

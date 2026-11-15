@@ -112,7 +112,7 @@ resource "cloudflare_zero_trust_access_application" "gated" {
   name             = each.key
   domain           = each.value
   type             = "self_hosted"
-  session_duration = "24h"
+  session_duration = var.services[each.key].access_session
   policies = concat(
     [{ id = cloudflare_zero_trust_access_policy.operator[0].id, precedence = 1 }],
     contains(keys(local.ip_bypass), each.key) ? [{ id = cloudflare_zero_trust_access_policy.ip_bypass[each.key].id, precedence = 2 }] : []
