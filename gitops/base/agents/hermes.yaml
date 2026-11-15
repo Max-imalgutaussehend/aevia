@@ -108,15 +108,30 @@ data:
     then `end_call` with a short goodbye. Never read secrets or long lists aloud. The tool blocks until Max has answered, so make the call the last step of a job.
     Afterwards: put the outcome into the dashboard (callout) and a line into your note in `Aevia/Hermes`.
   merge-config.py: |
-    # Idempotent: adds the callme MCP server to config.yaml when it is missing (the seed config is only copied once, Hermes may have edited its own).
-    import sys, yaml
+    # Idempotent, standard library only (the image has no PyYAML): adds the callme MCP server to config.yaml when it is missing.
+    # The seed config is only copied once and Hermes may have edited its own, so this inserts text under the top-level `mcp_servers:` key.
+    import re, sys
     p = sys.argv[1]
-    c = yaml.safe_load(open(p)) or {}
-    s = c.setdefault('mcp_servers', {})
-    if 'callme' not in s:
-        s['callme'] = {'url': 'http://callme.apps.svc.cluster.local:3333/mcp', 'headers': {'Authorization': 'Bearer ${CALLME_MCP_TOKEN}'}, 'timeout': 600}
-        yaml.safe_dump(c, open(p, 'w'), sort_keys=False, allow_unicode=True)
-        print('callme MCP server added')
+    text = open(p).read()
+    if re.search(r"^  callme:", text, re.M):
+        print("callme already configured")
+        sys.exit(0)
+    block = (
+        "  callme:\n"
+        "    url: \"http://callme.apps.svc.cluster.local:3333/mcp\"\n"
+        "    headers:\n"
+        "      Authorization: \"Bearer ${CALLME_MCP_TOKEN}\"\n"
+        "    timeout: 600\n"
+    )
+    m = re.search(r"^mcp_servers:[ \t]*\n", text, re.M)
+    if m:
+        text = text[: m.end()] + block + text[m.end():]
+    elif re.search(r"^mcp_servers:", text, re.M):
+        print("mcp_servers is not a block mapping: add callme by hand"); sys.exit(0)
+    else:
+        text = text.rstrip("\n") + "\nmcp_servers:\n" + block
+    open(p, "w").write(text)
+    print("callme MCP server added")
   usage-track.py: |
     # Subscription tracking. `hermes usage` has no endpoint for the OAuth token, so this reads Hermes' own session store (state.db, read-only) every
     # USAGE_INTERVAL seconds and appends one JSON line: totals per source (cron = scheduled jobs and heartbeats, api_server = Jarvis, oneshot, ...) for the
@@ -153,7 +168,7 @@ spec:
   replicas: 1
   selector: { matchLabels: { app.kubernetes.io/name: hermes } }
   template:
-    metadata: { labels: { app.kubernetes.io/name: hermes, app.kubernetes.io/part-of: aevia } }
+    metadata: { labels: { app.kubernetes.io/name: hermes, app.kubernetes.io/part-of: aevia }, annotations: { aevia/seed-rev: "2" } } # bump to re-run the init step (seed, skills, config merge)
     spec:
       serviceAccountName: agent
       automountServiceAccountToken: false
