@@ -19,4 +19,5 @@ print(json.dumps({"apiVersion": "v1", "kind": "Secret", "metadata": {"name": "ca
   "stringData": {"CALLME_PHONE_ACCOUNT_SID": sid, "CALLME_PHONE_AUTH_TOKEN": tok, "CALLME_PHONE_NUMBER": frm, "CALLME_USER_PHONE_NUMBER": to}}))
 PY
 sops -e -i --input-type json --output-type yaml "$out" 2>/dev/null || { rm -f "$out"; echo "sops failed"; exit 1; }
-echo "wrote $out (encrypted)"
+grep -q "callme-env.enc.yaml" gitops/secrets/secret-generator.yaml || printf "  - callme-env.enc.yaml\n" >> gitops/secrets/secret-generator.yaml
+echo "wrote $out (encrypted) and listed it in gitops/secrets/secret-generator.yaml"
