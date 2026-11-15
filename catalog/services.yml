@@ -196,11 +196,11 @@ services:
     env: { DASHBOARD_CF_TEAM: super-hat-3be8, DASHBOARD_CF_AUD: "1c7afb57931756a9670aaa8c613a7c95ad16864c13926e92b23ed86525e33266", DASHBOARD_DATA: /data, PORT: "8080", TZ: Europe/Berlin }
 
   - name: google-mcp
+    image: ghcr.io/max-imalgutaussehend/google-mcp@sha256:56d86b294ec4086e76d20e275417e91b9134bb3cb9cc45d78bb59140d50bead9
     type: application
     description: "Gmail + Google Calendar MCP server for Hermes (repo google-mcp, wraps workspace-mcp 2.3.0); cluster-internal only"
     port: 8000
     exposure: internal # no Ingress and no host: the MCP endpoint has no login of its own, only the Hermes pod may call it (policy in gitops/base/agents/hermes.yaml)
-    hold: "waiting for the google-mcp repo to be pushed and its image digest pinned (docs/runbooks/hermes-google.md)"
     needs: []
     internet: true # gmail.googleapis.com, oauth2.googleapis.com, www.googleapis.com
     persistence: 1Gi # OAuth refresh token (/data/credentials)

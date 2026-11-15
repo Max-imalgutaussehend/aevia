@@ -4,6 +4,7 @@ kind: Kustomization
 resources:
 - aevia.yaml
 - dashboard.yaml
+- google-mcp.yaml
 - jarvis.yaml
 - mcp.yaml
 - n8n.yaml
