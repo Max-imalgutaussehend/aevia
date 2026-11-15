@@ -62,7 +62,7 @@ def render(s: dict, by_name: dict) -> str:
         "image": s["image"],
         "ports": [{"name": "http", "containerPort": cport}],
         "resources": {
-            "requests": {"cpu": s["resources"]["cpu"], "memory": s["resources"]["memory"]},
+            "requests": {"cpu": s["resources"]["cpu"], "memory": s["resources"].get("memory_request", s["resources"]["memory"])},  # memory_request: lower than the limit for pods that idle far below it (the node is ~95% requested)
             "limits": {"memory": s["resources"]["memory"]},
         },
         "securityContext": {

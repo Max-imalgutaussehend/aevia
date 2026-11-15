@@ -189,7 +189,7 @@ services:
     persistence: 1Gi
     data_path: /data
     uid: 10002
-    resources: { cpu: 25m, memory: 96Mi }
+    resources: { cpu: 25m, memory: 96Mi, memory_request: 32Mi } # idles around 15 MiB
     healthcheck: /healthz
     secret_env:
       - dashboard-api # DASHBOARD_API_TOKEN, shared with Hermes (SOPS)
@@ -206,7 +206,7 @@ services:
     persistence: 1Gi # OAuth refresh token (/data/credentials)
     data_path: /data
     uid: 10003
-    resources: { cpu: 50m, memory: 256Mi }
+    resources: { cpu: 50m, memory: 256Mi, memory_request: 64Mi } # idles around 80 MiB; the node is ~95% requested, so request little and keep the limit
     healthcheck: /health
     secret_env:
       - google-mcp-env # GOOGLE_OAUTH_CLIENT_ID/SECRET, USER_GOOGLE_EMAIL, GOOGLE_OAUTH_REDIRECT_URI (SOPS)
